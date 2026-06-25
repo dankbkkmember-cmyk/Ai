@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANK Cannabis Club — ยืนยัน OTP</title>
+  <link rel="stylesheet" href="assets/css/auth.css">
+
+  <!-- 1. Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 2. EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <!-- 3. Credentials -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/emailjs-config.js"></script>
+  <!-- 4. Supabase client + Auth -->
+  <script src="assets/js/supabase.js"></script>
+  <script src="assets/js/auth.js"></script>
+
+  <style>
+    /* ── OTP digit boxes ── */
+    .otp-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 24px 0 8px;
+    }
+
+    .otp-digit {
+      width: 48px;
+      height: 56px;
+      background: var(--bg2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: var(--text1);
+      font-size: 22px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: all .2s ease;
+      caret-color: var(--green);
+    }
+
+    .otp-digit:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+      background: var(--card2);
+    }
+
+    .otp-digit:not(:placeholder-shown) {
+      border-color: var(--green2);
+      color: var(--green);
+    }
+
+    /* ── Expiry badge ── */
+    .expiry-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(234,179,8,.08);
+      border: 1px solid rgba(234,179,8,.2);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      color: var(--yellow);
+      margin: 0 auto 8px;
+    }
+
+    /* ── Email chip ── */
+    .email-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(74,222,128,.08);
+      border: 1px solid rgba(74,222,128,.2);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      color: var(--green);
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+
+    @media (max-width: 400px) {
+      .otp-digit { width: 40px; height: 48px; font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-wrapper">
+  <div class="auth-card" style="max-width:420px;text-align:center">
+
+    <!-- Brand logo -->
+    <div class="auth-logo">
+      <div class="auth-logo-icon">📧</div>
+      <div class="auth-logo-title"><span>DANK</span> Cannabis Club</div>
+      <div class="auth-logo-sub">Email Verification</div>
+    </div>
+
+    <div class="auth-title">ยืนยันอีเมลของคุณ</div>
+
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+      รหัส OTP ถูกส่งไปที่อีเมลผู้จัดการ
+    </p>
+
+    <!-- Email display -->
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <div class="email-chip">
+        📧 <span id="emailDisplay">กำลังโหลด...</span>
+      </div>
+    </div>
+
+    <!-- Expiry countdown -->
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <div class="expiry-badge">
+        ⏱️ หมดอายุใน <span id="expiryTimer" style="font-weight:700;font-variant-numeric:tabular-nums">05:00</span>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div id="otpAlert" class="auth-alert" role="alert" style="text-align:left">
+      <span id="otpAlertIcon">⚠️</span>
+      <span id="otpAlertMsg"></span>
+    </div>
+
+    <!-- OTP input boxes -->
+    <div id="otpInputsRow" class="otp-row">
+      <input class="otp-digit" id="otp0" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·" autocomplete="one-time-code">
+      <input class="otp-digit" id="otp1" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·">
+      <input class="otp-digit" id="otp2" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·">
+      <input class="otp-digit" id="otp3" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·">
+      <input class="otp-digit" id="otp4" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·">
+      <input class="otp-digit" id="otp5" type="text" inputmode="numeric"
+        maxlength="1" placeholder="·">
+    </div>
+
+    <p style="font-size:11px;color:var(--text3);margin-bottom:20px">
+      กรอกรหัส OTP จากอีเมล — ระบบจะยืนยันอัตโนมัติเมื่อครบ 6 หลัก
+    </p>
+
+    <!-- Verify button -->
+    <button class="btn-auth" id="verifyBtn" onclick="verifyOtp()">
+      <div class="spinner" id="verifySpinner"></div>
+      <span class="btn-label" id="verifyBtnLabel">✅ ยืนยัน OTP</span>
+    </button>
+
+    <!-- Resend -->
+    <div style="margin-top:20px;font-size:13px;color:var(--text3)">
+      ไม่ได้รับรหัส?
+      <button id="resendBtn" onclick="resendOtp()" disabled
+        style="background:none;border:none;color:var(--green);font-size:13px;font-weight:600;cursor:pointer;padding:0 4px;transition:all .2s">
+        ส่งใหม่
+      </button>
+      <span id="resendTimer" style="color:var(--text3);font-size:12px;font-variant-numeric:tabular-nums">(60s)</span>
+    </div>
+
+    <!-- Back to signup -->
+    <div style="margin-top:16px;font-size:12px;color:var(--text3)">
+      <a href="signup.html" style="color:var(--text3);text-decoration:none">
+        ← กลับไปหน้าสมัครสมาชิก
+      </a>
+    </div>
+
+    <div class="auth-footer" style="margin-top:24px">
+      © 2026 DANK Cannabis Club · All rights reserved<br>
+      <span style="color:#2d4a2d">Protected by DANK Auth v2.0 · Supabase</span>
+    </div>
+
+  </div>
+</div>
+
+<script src="assets/js/otp.js"></script>
+</body>
+</html>

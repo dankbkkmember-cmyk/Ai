@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANK Cannabis Club — Sign In</title>
+
+  <!-- Auth styles -->
+  <link rel="stylesheet" href="assets/css/auth.css">
+
+  <!-- 1. Supabase SDK (CDN, no credentials) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 2. Your credentials — fill in assets/js/config.js (gitignored) -->
+  <script src="assets/js/config.js"></script>
+  <!-- 3. Supabase client init — reads from config.js, no hardcoded values -->
+  <script src="assets/js/supabase.js"></script>
+  <!-- 4. Auth service -->
+  <script src="assets/js/auth.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     LOGIN PAGE
+     ═══════════════════════════════════════════════ -->
+<div class="auth-wrapper">
+  <div class="auth-card">
+
+    <!-- ── Brand logo ── -->
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🌿</div>
+      <div class="auth-logo-title"><span>DANK</span> Cannabis Club</div>
+      <div class="auth-logo-sub">AI Command Center</div>
+    </div>
+
+    <!-- ── Page title ── -->
+    <div class="auth-title">เข้าสู่ระบบ</div>
+    <div class="auth-subtitle">สำหรับผู้จัดการและพนักงาน DANK เท่านั้น</div>
+
+    <!-- ── Error / Success alert ── -->
+    <div id="authAlert" class="auth-alert" role="alert">
+      <span id="authAlertIcon">⚠️</span>
+      <span id="authAlertMsg"></span>
+    </div>
+
+    <!-- ── Login form ── -->
+    <form class="auth-form" id="loginForm" novalidate onsubmit="handleLogin(event)">
+
+      <!-- Email -->
+      <div class="form-group">
+        <label class="form-label" for="emailInput">อีเมล</label>
+        <div class="form-input-wrap">
+          <input
+            id="emailInput"
+            class="form-input"
+            type="email"
+            placeholder="your@dank.com"
+            autocomplete="username"
+            required
+          >
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label class="form-label" for="passwordInput">รหัสผ่าน</label>
+        <div class="form-input-wrap">
+          <input
+            id="passwordInput"
+            class="form-input has-icon"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          >
+          <button
+            type="button"
+            class="pw-toggle"
+            id="pwToggle"
+            onclick="togglePassword()"
+            title="แสดง/ซ่อนรหัสผ่าน"
+            aria-label="Toggle password visibility"
+          >👁️</button>
+        </div>
+      </div>
+
+      <!-- Remember me + Forgot password -->
+      <div class="form-row">
+        <label class="form-check">
+          <input type="checkbox" id="rememberMe">
+          จดจำฉันไว้ (30 วัน)
+        </label>
+        <span class="form-link" onclick="openForgot()">ลืมรหัสผ่าน?</span>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn-auth" id="loginBtn">
+        <div class="spinner" id="loginSpinner"></div>
+        <span class="btn-label" id="loginBtnLabel">🔑 เข้าสู่ระบบ</span>
+      </button>
+
+    </form>
+
+    <!-- ── Sign up link ── -->
+    <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text3)">
+      ยังไม่มีบัญชี?
+      <a href="signup.html" style="color:var(--green);text-decoration:none;font-weight:600"> สมัครสมาชิก</a>
+    </div>
+
+    <!-- ── Demo credentials (remove in production) ── -->
+    <div class="auth-demo">
+      <div class="auth-demo-title">🧪 Demo Accounts — คลิกเพื่อกรอกอัตโนมัติ</div>
+      <div class="auth-demo-row" onclick="fillDemo('admin@dank.com','dank2026')">
+        <span>admin@dank.com · dank2026</span>
+        <span class="auth-demo-badge">ADMIN</span>
+      </div>
+      <div class="auth-demo-row" onclick="fillDemo('bank@dank.com','manager123')">
+        <span>bank@dank.com · manager123</span>
+        <span class="auth-demo-badge">PTK MGR</span>
+      </div>
+      <div class="auth-demo-row" onclick="fillDemo('staff@dank.com','staff123')">
+        <span>staff@dank.com · staff123</span>
+        <span class="auth-demo-badge">STAFF</span>
+      </div>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="auth-footer">
+      © 2026 DANK Cannabis Club · All rights reserved<br>
+      <span style="color:#2d4a2d">Protected by DANK Auth v2.0 · Supabase</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     FORGOT PASSWORD OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div class="forgot-overlay" id="forgotOverlay" onclick="closeForgotOnBackdrop(event)">
+  <div class="forgot-card">
+    <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:6px">🔒 รีเซ็ตรหัสผ่าน</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:18px">ใส่อีเมลที่ลงทะเบียนไว้ — ระบบจะส่งลิงก์รีเซ็ตให้</div>
+
+    <div id="forgotAlert" class="auth-alert" style="margin-bottom:12px"></div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">อีเมล</label>
+      <input id="forgotEmail" class="form-input" type="email" placeholder="your@dank.com">
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button onclick="closeForgot()" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text2);font-size:13px;cursor:pointer">ยกเลิก</button>
+      <button onclick="handleForgot()" style="flex:1;background:linear-gradient(135deg,var(--green3),var(--green2));border:none;border-radius:10px;padding:10px;color:#000;font-size:13px;font-weight:700;cursor:pointer">ส่งลิงก์</button>
+    </div>
+
+    <div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.6">
+      💡 ระบบ Demo: ติดต่อ Admin เพื่อรีเซ็ตรหัสผ่านด้วยตนเอง<br>
+      🔄 Supabase/Firebase: จะส่ง Email จริงโดยอัตโนมัติ
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT — delegates to assets/js/login.js
+     ═══════════════════════════════════════════════ -->
+
+<!-- Fill demo credentials (still useful for testing) -->
+<script>
+  function fillDemo(email, password) {
+    document.getElementById('emailInput').value    = email;
+    document.getElementById('passwordInput').value = password;
+    document.getElementById('emailInput').focus();
+  }
+</script>
+
+<script src="assets/js/login.js"></script>
+</body>
+</html>

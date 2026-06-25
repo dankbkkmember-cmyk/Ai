@@ -1,0 +1,2907 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DANK Cannabis Club — AI Command Center</title>
+
+<!-- ⚡ Auth guard — hide page immediately, reveal after async session check -->
+<script>document.documentElement.style.visibility='hidden';</script>
+<!-- 1. Supabase SDK (CDN, no credentials) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- 2. Your credentials — fill in assets/js/config.js (gitignored) -->
+<script src="assets/js/config.js"></script>
+<!-- 3. Supabase client init — reads from config.js, zero hardcoded values -->
+<script src="assets/js/supabase.js"></script>
+<!-- 4. Auth service -->
+<script src="assets/js/auth.js"></script>
+<!-- 5. Async protect: reveals page if session OK, redirects to login if not -->
+<script>AuthGuard.protect();</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0a0f0a; --bg2:#111811; --card:#141f14; --card2:#1a261a;
+    --border:#1e3a1e; --green:#22c55e; --green2:#16a34a; --green3:#4ade80;
+    --yellow:#eab308; --red:#ef4444; --orange:#f97316;
+    --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b; --accent:#22c55e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+
+  /* HEADER */
+  header{background:linear-gradient(135deg,#0a1f0a,#0f2d0f);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:1000;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:36px;height:36px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .logo-text{font-size:20px;font-weight:800;color:var(--green3);letter-spacing:2px;}
+  .logo-sub{font-size:10px;color:var(--text3);letter-spacing:3px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .live-badge{background:#1a3a1a;border:1px solid var(--green);color:var(--green);padding:3px 10px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:5px;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .lang-btn{background:var(--card2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;transition:.2s;}
+  .lang-btn:hover{border-color:var(--green);color:var(--green);}
+  .lang-btn.en-active{border-color:var(--green);color:var(--green3);background:rgba(34,197,94,.1);}
+  .notif-btn{position:relative;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;cursor:pointer;font-size:16px;}
+  .notif-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .export-btn{background:var(--green2);color:#fff;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;}
+  .export-btn:hover{background:var(--green);}
+
+  /* NOTIF PANEL */
+  .notif-panel{position:fixed;top:65px;right:15px;width:340px;background:var(--card);border:1px solid var(--border);border-radius:12px;z-index:999;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6);}
+  .notif-panel.open{display:block;}
+  .notif-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .notif-header h3{font-size:14px;color:var(--green3);}
+  .notif-clear{background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;}
+  .notif-item{padding:12px 16px;border-bottom:1px solid #1a2a1a;display:flex;gap:10px;align-items:flex-start;}
+  .notif-icon{font-size:18px;margin-top:2px;}
+  .notif-body{flex:1;}
+  .notif-title{font-size:12px;font-weight:600;color:var(--text);}
+  .notif-desc{font-size:11px;color:var(--text3);margin-top:2px;}
+  .notif-time{font-size:10px;color:var(--text3);margin-top:4px;}
+  .notif-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+  .notif-dot.red{background:var(--red);}.notif-dot.yellow{background:var(--yellow);}.notif-dot.green{background:var(--green);}
+
+  /* LAYOUT */
+  .layout{display:flex;height:calc(100vh - 60px);}
+  nav{width:200px;background:var(--bg2);border-right:1px solid var(--border);padding:10px 0;overflow-y:auto;flex-shrink:0;}
+  .nav-section{padding:6px 12px 2px;font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:8px;}
+  .nav-item{display:flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;color:var(--text2);font-size:13px;border-left:3px solid transparent;transition:.2s;}
+  .nav-item:hover,.nav-item.active{color:var(--green3);background:rgba(34,197,94,.08);border-left-color:var(--green);}
+  main{flex:1;overflow-y:auto;padding:20px;}
+  .section{display:none;}
+  .section.active{display:block;}
+  h2.section-title{font-size:22px;font-weight:800;margin-bottom:4px;color:var(--green3);}
+  .section-sub{color:var(--text3);font-size:12px;margin-bottom:20px;}
+
+  /* GRID / CARD */
+  .grid{display:grid;gap:14px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:1fr;}.grid-2{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;}
+  .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+  .card-title{font-size:13px;color:var(--text2);font-weight:500;}
+  .kpi{font-size:26px;font-weight:800;color:var(--text);}
+  .kpi-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+  .badge-green{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+  .badge-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+  .badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow);border:1px solid rgba(234,179,8,.3);}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{padding:8px 10px;text-align:left;color:var(--text3);border-bottom:1px solid var(--border);font-weight:600;font-size:11px;}
+  tbody td{padding:9px 10px;border-bottom:1px solid #111f11;}
+  tbody tr:hover{background:rgba(34,197,94,.04);}
+  .status-ok{color:var(--green);}.status-low{color:var(--yellow);}.status-crit{color:var(--red);}
+
+  /* CHART */
+  .chart-container{position:relative;height:220px;}
+  .chart-tabs{display:flex;gap:6px;margin-bottom:12px;}
+  .chart-tab{padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:var(--card2);}
+  .chart-tab.active{background:var(--green2);color:#fff;border-color:var(--green2);}
+
+  /* STAFF EDITOR */
+  .staff-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .staff-table thead th{padding:9px 12px;text-align:left;color:var(--text3);border-bottom:2px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.5px;white-space:nowrap;}
+  .staff-table tbody tr{border-bottom:1px solid #111f11;transition:.15s;}
+  .staff-table tbody tr:hover{background:rgba(34,197,94,.04);}
+  .staff-table td{padding:8px 12px;vertical-align:middle;}
+  .staff-edit-input{background:#0d1a0d;border:1px solid var(--border);color:var(--text);padding:5px 9px;border-radius:6px;font-size:12px;width:100%;min-width:90px;}
+  .staff-edit-input:focus{outline:none;border-color:var(--green);background:#0f200f;}
+  .salary-input{width:100px;text-align:right;}
+  .role-input{width:110px;}
+  .shift-checks{display:flex;gap:6px;flex-wrap:wrap;}
+  .shift-label{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;}
+  .shift-label input[type=checkbox]{display:none;}
+  .shift-chip{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;border:1px solid var(--border);color:var(--text3);background:var(--bg2);transition:.15s;white-space:nowrap;}
+  .shift-label input[type=checkbox]:checked + .shift-chip.night{background:rgba(99,102,241,.2);border-color:#6366f1;color:#a5b4fc;}
+  .shift-label input[type=checkbox]:checked + .shift-chip.morning{background:rgba(234,179,8,.15);border-color:var(--yellow);color:var(--yellow);}
+  .shift-label input[type=checkbox]:checked + .shift-chip.evening{background:rgba(249,115,22,.15);border-color:var(--orange);color:var(--orange);}
+  .row-num{color:var(--text3);font-size:11px;width:24px;text-align:center;}
+  .branch-divider td{background:rgba(34,197,94,.06);color:var(--green3);font-size:11px;font-weight:700;padding:6px 12px;}
+
+  /* CHAT */
+  .chat-box{background:var(--bg);border:1px solid var(--border);border-radius:12px;height:320px;overflow-y:auto;padding:16px;margin-bottom:12px;}
+  .chat-msg{margin-bottom:14px;}
+  .chat-from{font-size:10px;color:var(--text3);margin-bottom:4px;}
+  .chat-bubble{padding:10px 14px;border-radius:10px;font-size:13px;max-width:80%;line-height:1.6;}
+  .chat-bubble.user{background:var(--card2);margin-left:auto;}
+  .chat-bubble.ai{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);}
+  .chat-input-row{display:flex;gap:8px;}
+  .chat-input{flex:1;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:13px;}
+  .chat-input:focus{outline:none;border-color:var(--green);}
+  .chat-send{background:var(--green2);color:#fff;border:none;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:14px;}
+  .quick-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .quick-tag{padding:4px 12px;border-radius:20px;font-size:11px;background:var(--card2);border:1px solid var(--border);color:var(--text2);cursor:pointer;}
+  .quick-tag:hover{border-color:var(--green);color:var(--green);}
+
+  /* MISC */
+  .insight-item{padding:12px 14px;border-radius:8px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;}
+  .insight-item.green{background:rgba(34,197,94,.08);border-left:3px solid var(--green);}
+  .insight-item.yellow{background:rgba(234,179,8,.08);border-left:3px solid var(--yellow);}
+  .insight-item.red{background:rgba(239,68,68,.08);border-left:3px solid var(--red);}
+  .insight-text{font-size:12px;color:var(--text);}
+  .peak-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .peak-label{font-size:11px;color:var(--text2);width:70px;flex-shrink:0;}
+  .peak-track{flex:1;background:#1a2a1a;border-radius:4px;height:14px;overflow:hidden;}
+  .peak-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green2),var(--green3));}
+  .peak-val{font-size:11px;color:var(--text3);width:30px;text-align:right;}
+  .progress-bar{background:#1a2a1a;border-radius:6px;height:6px;overflow:hidden;margin-top:6px;}
+  .progress-fill{height:100%;border-radius:6px;background:var(--green);}
+  .btn{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;}
+  .btn-green{background:var(--green2);color:#fff;}.btn-green:hover{background:var(--green);}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}.btn-outline:hover{border-color:var(--green);color:var(--green);}
+  .divider{border:none;border-top:1px solid var(--border);margin:14px 0;}
+  .mb-14{margin-bottom:14px;}.mt-14{margin-top:14px;}
+  .text-green{color:var(--green3);}.text-red{color:var(--red);}.text-yellow{color:var(--yellow);}
+  ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:var(--bg2);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- NOTIF PANEL -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-header">
+    <h3 data-i18n="notif_header">🔔 การแจ้งเตือน</h3>
+    <button class="notif-clear" onclick="clearNotifs()" data-i18n="notif_clear">ล้างทั้งหมด</button>
+  </div>
+  <div id="notifList">
+    <div class="notif-item"><div class="notif-dot red"></div><div class="notif-icon">🌿</div><div class="notif-body"><div class="notif-title">The Toad — หมด Stock!</div><div class="notif-desc">ขายได้ 219g/เดือน ต้อง Reorder ด่วน</div><div class="notif-time">2 นาทีที่แล้ว</div></div></div>
+    <div class="notif-item"><div class="notif-dot red"></div><div class="notif-icon">🌿</div><div class="notif-body"><div class="notif-title">Bangkok Lemon — หมด Stock!</div><div class="notif-desc">ขายได้ 273g/เดือน ต้อง Reorder ด่วน</div><div class="notif-time">5 นาทีที่แล้ว</div></div></div>
+    <div class="notif-item"><div class="notif-dot red"></div><div class="notif-icon">🍦</div><div class="notif-body"><div class="notif-title">Snow Banana — หมด Stock!</div><div class="notif-desc">60% THC — สายพันธุ์พิเศษ ต้องสั่งด่วน</div><div class="notif-time">5 นาทีที่แล้ว</div></div></div>
+    <div class="notif-item"><div class="notif-dot yellow"></div><div class="notif-icon">⚠️</div><div class="notif-body"><div class="notif-title">Halle Berry — เหลือ 0.15g</div><div class="notif-desc">วิกฤต! ขาย 100g/เดือน แต่เหลือแทบไม่มี</div><div class="notif-time">10 นาทีที่แล้ว</div></div></div>
+    <div class="notif-item"><div class="notif-dot yellow"></div><div class="notif-icon">🥤</div><div class="notif-body"><div class="notif-title">Soft Drinks Stock ติดลบ (-8)</div><div class="notif-desc">ระบบแสดงค่าลบ — ต้องตรวจสอบ</div><div class="notif-time">15 นาทีที่แล้ว</div></div></div>
+    <div class="notif-item"><div class="notif-dot green"></div><div class="notif-icon">💰</div><div class="notif-body"><div class="notif-title">Payroll May 2026 สรุปแล้ว</div><div class="notif-desc">ยอดรวม ฿418,015 — 22 คน 2 สาขา</div><div class="notif-time">1 ชั่วโมงที่แล้ว</div></div></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌿</div>
+    <div><div class="logo-text">DANK</div><div class="logo-sub">AI COMMAND CENTER</div></div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div><span data-i18n="live_badge">LIVE — 24 มิ.ย. 2026</span></div>
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">
+      <span id="langFlag">🇹🇭</span><span id="langLabel">TH / EN</span>
+    </button>
+    <button class="notif-btn" onclick="toggleNotif()" id="notifBtn">🔔<div class="notif-badge" id="notifCount">6</div></button>
+    <button class="export-btn" onclick="openImportModal()" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4);color:#a5b4fc;margin-right:6px">⬆️ Import POS</button>
+    <button class="export-btn" onclick="exportReport()" data-i18n="export_btn">⬇️ Export Report</button>
+
+    <!-- User badge -->
+    <div style="display:flex;align-items:center;gap:8px;margin-left:4px">
+      <div style="display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 8px">
+        <span id="authUserAvatar" style="font-size:18px">👤</span>
+        <div style="display:flex;flex-direction:column;line-height:1.2">
+          <span id="authUserName" style="font-size:12px;font-weight:600;color:var(--text1)">—</span>
+          <span id="authUserRole" style="font-size:10px;color:var(--green);letter-spacing:.04em">—</span>
+        </div>
+      </div>
+      <button onclick="AuthService.logout()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:5px 10px;color:#f87171;font-size:11px;cursor:pointer;transition:.2s" onmouseover="this.style.background='rgba(239,68,68,.2)'" onmouseout="this.style.background='rgba(239,68,68,.1)'">🚪 ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<script>
+  // Inject user info into header once DOM is ready
+  document.addEventListener('DOMContentLoaded', () => AuthGuard.injectUserUI());
+  // Also load dashboard.js for session management (loads after body)
+
+</script>
+
+<!-- IMPORT MODAL -->
+<div id="importModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#0f1f0f;border:1px solid var(--border);border-radius:16px;width:100%;max-width:760px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+    <!-- Modal Header -->
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text1)">⬆️ Import จาก POS (Food Story)</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">รองรับ .csv และ .xlsx — ดู Preview ก่อน Import เสมอ</div>
+      </div>
+      <button onclick="closeImportModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <!-- Type Tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+      <button class="imp-tab active" onclick="setImportType(this,'inventory')" id="itab_inventory">📦 Inventory</button>
+      <button class="imp-tab" onclick="setImportType(this,'sales')" id="itab_sales">💰 Sales</button>
+      <button class="imp-tab" onclick="setImportType(this,'staff')" id="itab_staff">👥 Staff</button>
+      <button class="imp-tab" onclick="setImportType(this,'customers')" id="itab_customers">🧑 Customers</button>
+    </div>
+    <!-- Modal Body -->
+    <div style="padding:20px;overflow-y:auto;flex:1">
+      <!-- Drop Zone -->
+      <div id="dropZone" style="border:2px dashed rgba(74,222,128,.3);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:16px"
+           onclick="document.getElementById('posFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+           ondragleave="this.style.borderColor='rgba(74,222,128,.3)'"
+           ondrop="handleDrop(event)">
+        <div style="font-size:36px;margin-bottom:8px">📂</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px">คลิกหรือลากไฟล์มาวางที่นี่</div>
+        <div style="font-size:12px;color:var(--text3)">รองรับ .csv และ .xlsx จาก Food Story POS</div>
+        <input type="file" id="posFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(this)">
+      </div>
+      <!-- Column mapping hint -->
+      <div id="importTypeHint" style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text3);line-height:1.8"></div>
+      <!-- Preview table -->
+      <div id="importPreview" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--text1)" id="previewTitle">Preview</div>
+          <div style="font-size:11px;color:var(--text3)" id="previewCount"></div>
+        </div>
+        <div id="previewTableWrap" style="overflow-x:auto;max-height:280px;border:1px solid var(--border);border-radius:8px"></div>
+        <!-- Summary -->
+        <div id="importSummary" style="margin-top:12px;background:#0d2a0d;border:1px solid rgba(74,222,128,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);line-height:1.8"></div>
+      </div>
+      <!-- Error -->
+      <div id="importError" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;font-size:12px;color:#f87171"></div>
+    </div>
+    <!-- Modal Footer -->
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+      <button onclick="closeImportModal()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:9px 20px;color:var(--text2);font-size:13px;cursor:pointer">ยกเลิก</button>
+      <button id="confirmImportBtn" onclick="confirmImport()" disabled style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:8px;padding:9px 20px;color:var(--green);font-size:13px;cursor:pointer;opacity:.5">✅ Import เข้าระบบ</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.imp-tab{flex:1;padding:10px 8px;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;transition:.2s;border-bottom:2px solid transparent}
+.imp-tab:hover{color:var(--text1);background:rgba(255,255,255,.03)}
+.imp-tab.active{color:var(--green);border-bottom-color:var(--green);background:rgba(74,222,128,.05)}
+.imp-table{width:100%;border-collapse:collapse;font-size:11px}
+.imp-table th{background:#0d2a0d;color:var(--green);padding:7px 10px;text-align:left;position:sticky;top:0;white-space:nowrap}
+.imp-table td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);white-space:nowrap}
+.imp-table tr:hover td{background:rgba(74,222,128,.04)}
+</style>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section" data-i18n="nav_overview">Overview</div>
+    <div class="nav-item active" onclick="showSection('dashboard',this)"><span>📊</span> <span data-i18n="nav_dashboard">CEO Dashboard</span></div>
+    <div class="nav-section" data-i18n="nav_operations">Operations</div>
+    <div class="nav-item" onclick="showSection('inventory',this)"><span>📦</span> <span data-i18n="nav_inventory">Inventory</span></div>
+    <div class="nav-item" onclick="showSection('bar',this)"><span>🍹</span> <span data-i18n="nav_bar">Bar Ops</span></div>
+    <div class="nav-section" data-i18n="nav_analytics">Analytics</div>
+    <div class="nav-item" onclick="showSection('sales',this)"><span>📈</span> <span data-i18n="nav_sales">Sales Analytics</span></div>
+    <div class="nav-item" onclick="showSection('customers',this)"><span>👤</span> <span data-i18n="nav_customers">Customer Analytics</span></div>
+    <div class="nav-section" data-i18n="nav_growth">Growth</div>
+    <div class="nav-item" onclick="showSection('marketing',this)"><span>📣</span> <span data-i18n="nav_marketing">Marketing AI</span></div>
+    <div class="nav-item" onclick="showSection('support',this)"><span>💬</span> <span data-i18n="nav_support">Customer Support</span></div>
+    <div class="nav-section" data-i18n="nav_finance_people">Finance & People</div>
+    <div class="nav-item" onclick="showSection('finance',this)"><span>💰</span> <span data-i18n="nav_finance">Finance</span></div>
+    <div class="nav-item" onclick="showSection('staff',this)"><span>👥</span> <span data-i18n="nav_staff">Staff & HR</span></div>
+    <div class="nav-section">AI</div>
+    <div class="nav-item" onclick="showSection('ai',this)"><span>🤖</span> <span data-i18n="nav_ai">Ask DANK AI</span></div>
+  </nav>
+
+  <main>
+
+    <!-- CEO DASHBOARD -->
+    <div class="section active" id="dashboard">
+      <h2 class="section-title" data-i18n="dash_title">CEO Dashboard</h2>
+      <div class="section-sub" data-i18n="dash_sub">Live · 24 มิ.ย. 2026 (วันพุธ) · ข้อมูล May 2026</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title" data-i18n="kpi_inv_title">💰 Inventory Value</div><div class="kpi">฿546,593</div><div class="kpi-sub" data-i18n="kpi_inv_sub">200+ SKUs tracked</div><div class="progress-bar"><div class="progress-fill" style="width:73%"></div></div></div>
+        <div class="card"><div class="card-title" data-i18n="kpi_sales_title">🌿 May Sales (Weed)</div><div class="kpi">฿250K+</div><div class="kpi-sub" data-i18n="kpi_sales_sub">Top 5 strains revenue</div><div style="margin-top:6px"><span class="badge badge-green" data-i18n="kpi_sales_badge">↑ 12% vs Apr</span></div></div>
+        <div class="card"><div class="card-title" data-i18n="kpi_stock_title">⚠️ Low / Zero Stock</div><div class="kpi text-red">12</div><div class="kpi-sub" data-i18n="kpi_stock_sub">Items need reorder</div><div style="margin-top:6px"><span class="badge badge-red" data-i18n="kpi_stock_badge">4 out of stock</span></div></div>
+        <div class="card"><div class="card-title" data-i18n="kpi_pay_title">👥 Payroll (May)</div><div class="kpi">฿418,015</div><div class="kpi-sub" data-i18n="kpi_pay_sub">2 สาขา · 22 พนักงาน</div><div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--yellow)"></div></div></div>
+      </div>
+      <div class="grid grid-2 mb-14">
+        <div class="card"><div class="card-header"><span class="card-title">🔥 Top 5 Sellers (May)</span><span class="badge badge-green">Revenue</span></div><div class="chart-container"><canvas id="topSellersBar"></canvas></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">⚠️ Critical Stock Alert</span><span class="badge badge-red">4 หมด</span></div>
+          <div class="insight-item red"><span>🌿</span><span class="insight-text"><strong>The Toad</strong> (28-35% THC) — <span class="text-red">OUT OF STOCK</span> · ขาย 219g/เดือน</span></div>
+          <div class="insight-item red"><span>🌿</span><span class="insight-text"><strong>Bangkok Lemon</strong> (31%) — <span class="text-red">OUT OF STOCK</span> · ขาย 273g/เดือน</span></div>
+          <div class="insight-item red"><span>🍦</span><span class="insight-text"><strong>Snow Banana</strong> (60%) — <span class="text-red">OUT OF STOCK</span> · ขาย 43g/เดือน</span></div>
+          <div class="insight-item yellow"><span>⚠️</span><span class="insight-text"><strong>Halle Berry</strong> (30%) — เหลือ <span class="text-yellow">0.15g</span> · ขาย 100g/เดือน</span></div>
+        </div>
+      </div>
+      <div class="card mb-14"><div class="card-header"><span class="card-title">🤖 AI Insights</span></div>
+        <div class="insight-item green"><span>✅</span><span class="insight-text">Zooties ขายดีสุด ฿59,906/เดือน ราคา ฿220/g — ดัน IG post!</span></div>
+        <div class="insight-item red"><span>⚠️</span><span class="insight-text">The Toad + Bangkok Lemon หมดแล้ว — ขาย 273g+219g/เดือน ต้อง reorder ทันที</span></div>
+        <div class="insight-item green"><span>✅</span><span class="insight-text">Sathorn commission สูงกว่า Pattanakarn (฿13,650 vs ฿9,800) — staff Sathorn ขายดีต่อหัว</span></div>
+        <div class="insight-item yellow"><span>💡</span><span class="insight-text">Payroll รวม ฿418,015 — ควรเปรียบกับรายได้เดือนนี้เพื่อดู labor cost margin</span></div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card"><div class="card-title mb-14">👥 On Shift Today (พุธ)</div>
+          <div style="font-size:12px;color:var(--text2)">
+            <div style="margin-bottom:8px"><span style="color:var(--text3)">🌙 Night:</span> <strong>Rena</strong></div>
+            <div style="margin-bottom:8px"><span style="color:var(--text3)">☀️ Day:</span> <strong>Steve · Gus</strong></div>
+            <div style="margin-bottom:8px"><span style="color:var(--text3)">🌆 Evening:</span> <strong>Alex · Dylan</strong></div>
+            <div style="margin-bottom:8px"><span style="color:var(--text3)">🍹 Bar:</span> <strong>Honey · Jack</strong></div>
+            <div><span style="color:var(--text3)">🏠 Off:</span> Mon · Pam · Amore</div>
+          </div>
+        </div>
+        <div class="card"><div class="card-title mb-14">📊 Payroll Split</div><div class="chart-container" style="height:150px"><canvas id="payrollPie"></canvas></div></div>
+        <div class="card"><div class="card-title mb-14">📋 Reorder List</div>
+          <div style="font-size:12px">
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a2a1a"><span>The Toad (28-35%)</span><span class="badge badge-red">Reorder Now</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a2a1a"><span>Bangkok Lemon (31%)</span><span class="badge badge-red">Reorder Now</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a2a1a"><span>Snow Banana (60%)</span><span class="badge badge-red">Reorder Now</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1a2a1a"><span>Halle Berry (30%)</span><span class="badge badge-yellow">Critical</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0"><span>Sherb Tank (25-30%)</span><span class="badge badge-yellow">Low</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="section" id="inventory">
+      <h2 class="section-title" data-i18n="inv_title">Inventory Management</h2>
+      <div class="section-sub" data-i18n="inv_sub">ข้อมูล May 2026 · 200+ SKUs · Total Value ฿546,593</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Total Value</div><div class="kpi">฿546,593</div></div>
+        <div class="card"><div class="card-title">Out of Stock</div><div class="kpi text-red">4</div></div>
+        <div class="card"><div class="card-title">Low Stock</div><div class="kpi text-yellow">3</div></div>
+        <div class="card"><div class="card-title">Top Seller</div><div class="kpi" style="font-size:18px">Bangkok Lemon</div><div class="kpi-sub">273g sold</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">🌿 Weed Inventory — May 2026</span><button class="btn btn-outline" onclick="exportReport()">⬇️ Export CSV</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Strain</th><th>THC%</th><th>Stock (g)</th><th>May Sales (g)</th><th>Price/g</th><th>Value</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Zooties</strong></td><td>28%</td><td>31.61</td><td>272.3</td><td>฿220</td><td>฿6,954</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Gelato X</td><td>28%</td><td>41.56</td><td>360.2</td><td>฿100</td><td>฿4,156</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>MellowZ</td><td>25-29%</td><td>41.93</td><td>320.8</td><td>฿100</td><td>฿4,193</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>ztupid</td><td>28%</td><td>48.15</td><td>315.6</td><td>฿100</td><td>฿4,815</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Grape Stank</td><td>29%</td><td>17.28</td><td>279.4</td><td>฿100</td><td>฿1,728</td><td><span class="status-low">⚠️ Low</span></td></tr>
+            <tr><td>King Cherry</td><td>28%</td><td>51.2</td><td>220.5</td><td>฿80</td><td>฿4,096</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Strawberry Cheesecake Pop</td><td>28%</td><td>56.41</td><td>294.5</td><td>฿50</td><td>฿2,821</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>CoCo Chanel</td><td>26-28%</td><td>44.11</td><td>230.4</td><td>฿100</td><td>฿4,411</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Alien Mintz</td><td>38.5%</td><td>39.01</td><td>178.7</td><td>฿100</td><td>฿3,901</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Sherb Tank</td><td>25-30%</td><td>34.61</td><td>171.5</td><td>฿80</td><td>฿2,769</td><td><span class="status-low">⚠️ Low</span></td></tr>
+            <tr><td>Baby Cake</td><td>29%</td><td>39</td><td>174.6</td><td>฿80</td><td>฿3,120</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td>Mac 1</td><td>29%</td><td>49.78</td><td>136.6</td><td>฿100</td><td>฿4,978</td><td><span class="status-ok">✅ OK</span></td></tr>
+            <tr><td><strong>Halle Berry</strong></td><td>30%</td><td><span class="text-red">0.15</span></td><td>100.6</td><td>฿100</td><td>฿15</td><td><span class="status-crit">🔴 CRITICAL</span></td></tr>
+            <tr><td><strong>The Toad</strong></td><td>28-35%</td><td><span class="text-red">0</span></td><td>219.5</td><td>฿120</td><td>฿0</td><td><span class="status-crit">❌ OUT</span></td></tr>
+            <tr><td><strong>Bangkok Lemon</strong></td><td>31%</td><td><span class="text-red">0</span></td><td>273.2</td><td>฿50</td><td>฿0</td><td><span class="status-crit">❌ OUT</span></td></tr>
+            <tr><td><strong>Snow Banana</strong></td><td>60%</td><td><span class="text-red">0</span></td><td>42.8</td><td>฿150</td><td>฿0</td><td><span class="status-crit">❌ OUT</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- BAR OPS -->
+    <div class="section" id="bar">
+      <h2 class="section-title" data-i18n="bar_title">Bar Operations</h2>
+      <div class="section-sub" data-i18n="bar_sub">วันนี้: Honey (3PM-12AM) · Jack (9PM-6AM)</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Bar Staff Today</div><div class="kpi" style="font-size:18px">Honey + Jack</div><div class="kpi-sub">3PM-12AM · 9PM-6AM</div></div>
+        <div class="card"><div class="card-title">Top Bar Item</div><div class="kpi" style="font-size:18px">Soft Drinks</div><div class="kpi-sub">315 units (May)</div></div>
+        <div class="card"><div class="card-title">Beer Thai Sold</div><div class="kpi">187</div><div class="kpi-sub">Bottles in May</div></div>
+        <div class="card"><div class="card-title">Soft Drink Stock</div><div class="kpi text-red">-8</div><div class="kpi-sub"><span class="badge badge-red">Negative — Fix Now</span></div></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-header"><span class="card-title">🍹 Bar Schedule (พุธ)</span></div>
+          <div class="insight-item green"><span>🍹</span><span class="insight-text"><strong>Honey</strong> — 3:00 PM – 12:00 AM</span></div>
+          <div class="insight-item green"><span>🍹</span><span class="insight-text"><strong>Jack</strong> — 9:00 PM – 6:00 AM</span></div>
+          <div class="insight-item yellow"><span>🍳</span><span class="insight-text"><strong>Boom (Kitchen)</strong> — 11:00 AM – 8:00 PM</span></div>
+          <div class="insight-item yellow"><span>🍳</span><span class="insight-text"><strong>Soe (Kitchen)</strong> — 5:00 PM – 2:00 AM</span></div>
+          <div class="insight-item yellow"><span>🛵</span><span class="insight-text"><strong>Zaw (Rider)</strong> — 10:00 AM – 7:00 PM</span></div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">🥤 Bar Inventory</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Product</th><th>May Sales</th><th>Stock</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Soft Drinks</td><td>315 cans</td><td class="text-red">-8 ⚠️</td><td><span class="status-crit">Restock</span></td></tr>
+              <tr><td>Beer Thai</td><td>187 bottles</td><td>6</td><td><span class="status-low">Low</span></td></tr>
+              <tr><td>Castown Craft Soda</td><td>37 bottles</td><td>56</td><td><span class="status-ok">Good</span></td></tr>
+              <tr><td>Anan IPA Beer</td><td>5 cans</td><td class="text-red">1</td><td><span class="status-crit">Critical</span></td></tr>
+              <tr><td>ACE Agave Lime</td><td>15 cans</td><td>6</td><td><span class="status-low">Low</span></td></tr>
+              <tr><td>Livity420 (THC Wine)</td><td>0 sold</td><td>3</td><td><span class="status-ok">In Stock</span></td></tr>
+              <tr><td>Havana Club Rum</td><td>—</td><td>465ml</td><td><span class="status-ok">Good</span></td></tr>
+              <tr><td>Hendrick's Gin</td><td>—</td><td>700ml</td><td><span class="status-ok">Good</span></td></tr>
+            </tbody>
+          </table></div>
+          <div class="insight-item red mt-14"><span>🤖</span><span class="insight-text">Soft Drinks ขาย 315 cans แต่ stock ติดลบ (-8) — error ใน system</span></div>
+          <div class="insight-item yellow"><span>🤖</span><span class="insight-text">Livity420 (THC Wine ฿180) ยังไม่ขายได้เลย — พิจารณา promo</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SALES ANALYTICS -->
+    <div class="section" id="sales">
+      <h2 class="section-title" data-i18n="sales_title">Sales Analytics</h2>
+      <div class="section-sub" data-i18n="sales_sub">เปรียบเทียบยอดขายรายวัน / สาขา / สายพันธุ์</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Monthly Revenue</div><div class="kpi">฿250K+</div><div style="margin-top:4px"><span class="badge badge-green">↑ 12% vs Apr</span></div></div>
+        <div class="card"><div class="card-title">Avg Daily Sales</div><div class="kpi">฿8,300</div><div class="kpi-sub">Estimate 30 days</div></div>
+        <div class="card"><div class="card-title">Best Day</div><div class="kpi" style="font-size:18px">Fri–Sat</div><div class="kpi-sub">Weekend peak</div></div>
+        <div class="card"><div class="card-title">Top Category</div><div class="kpi" style="font-size:16px">Premium Weed</div><div class="kpi-sub">Zooties ฿220/g</div></div>
+      </div>
+      <div class="card mb-14">
+        <div class="card-header">
+          <span class="card-title">📈 Daily Sales Trend (June 2026 — Estimated)</span>
+          <div class="chart-tabs">
+            <div class="chart-tab active" onclick="switchSalesChart('daily',this)" data-i18n-tab="tab_daily">รายวัน</div>
+            <div class="chart-tab" onclick="switchSalesChart('weekly',this)" data-i18n-tab="tab_weekly">รายสัปดาห์</div>
+            <div class="chart-tab" onclick="switchSalesChart('branch',this)" data-i18n-tab="tab_branch">เปรียบสาขา</div>
+          </div>
+        </div>
+        <div class="chart-container" style="height:260px"><canvas id="salesTrendChart"></canvas></div>
+      </div>
+      <div class="grid grid-2 mb-14">
+        <div class="card"><div class="card-header"><span class="card-title">🌿 Top Strains Revenue (฿)</span></div><div class="chart-container"><canvas id="strainRevenueChart"></canvas></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">📊 Category Mix</span></div><div class="chart-container"><canvas id="categoryMixChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER ANALYTICS -->
+    <div class="section" id="customers">
+      <h2 class="section-title" data-i18n="cust_title">Customer Analytics</h2>
+      <div class="section-sub" data-i18n="cust_sub">พฤติกรรมลูกค้า · Peak Hours · Repeat Customers</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Total Customers (May)</div><div class="kpi">~420</div><div class="kpi-sub">Estimate from sales data</div></div>
+        <div class="card"><div class="card-title">Repeat Customers</div><div class="kpi text-green">63%</div><div class="kpi-sub">Come back 2+ times</div></div>
+        <div class="card"><div class="card-title">Avg Spend/Visit</div><div class="kpi">฿595</div><div class="kpi-sub">Revenue / visits estimate</div></div>
+        <div class="card"><div class="card-title">Peak Hour</div><div class="kpi" style="font-size:20px">7–10 PM</div><div class="kpi-sub">Evening crowd</div></div>
+      </div>
+      <div class="grid grid-2 mb-14">
+        <div class="card"><div class="card-header"><span class="card-title">⏰ Peak Hours</span></div>
+          <div style="margin-top:10px">
+            <div class="peak-bar"><span class="peak-label">12-1 PM</span><div class="peak-track"><div class="peak-fill" style="width:20%"></div></div><span class="peak-val">20%</span></div>
+            <div class="peak-bar"><span class="peak-label">1-3 PM</span><div class="peak-track"><div class="peak-fill" style="width:30%"></div></div><span class="peak-val">30%</span></div>
+            <div class="peak-bar"><span class="peak-label">3-5 PM</span><div class="peak-track"><div class="peak-fill" style="width:45%"></div></div><span class="peak-val">45%</span></div>
+            <div class="peak-bar"><span class="peak-label">5-7 PM</span><div class="peak-track"><div class="peak-fill" style="width:70%"></div></div><span class="peak-val">70%</span></div>
+            <div class="peak-bar"><span class="peak-label">7-9 PM</span><div class="peak-track"><div class="peak-fill" style="width:100%"></div></div><span class="peak-val">100%</span></div>
+            <div class="peak-bar"><span class="peak-label">9-11 PM</span><div class="peak-track"><div class="peak-fill" style="width:85%"></div></div><span class="peak-val">85%</span></div>
+            <div class="peak-bar"><span class="peak-label">11PM-1AM</span><div class="peak-track"><div class="peak-fill" style="width:55%"></div></div><span class="peak-val">55%</span></div>
+            <div class="peak-bar"><span class="peak-label">1-3 AM</span><div class="peak-track"><div class="peak-fill" style="width:25%"></div></div><span class="peak-val">25%</span></div>
+          </div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">📅 Traffic by Day</span></div><div class="chart-container"><canvas id="trafficChart"></canvas></div></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-header"><span class="card-title">💚 Customer Segments</span></div><div class="chart-container" style="height:180px"><canvas id="segmentChart"></canvas></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">🤖 Customer Insights</span></div>
+          <div class="insight-item green"><span>✅</span><span class="insight-text">63% เป็น repeat customers — loyalty ดีมาก</span></div>
+          <div class="insight-item green"><span>📈</span><span class="insight-text">Peak 7-10PM — schedule staff ให้เพียงพอช่วงนี้</span></div>
+          <div class="insight-item yellow"><span>💡</span><span class="insight-text">Weekend traffic สูงกว่า weekday ~40%</span></div>
+          <div class="insight-item yellow"><span>💡</span><span class="insight-text">Livity420 (THC Wine) 0 sales — ต้องการ demo</span></div>
+          <div class="insight-item red"><span>⚠️</span><span class="insight-text">Out-of-stock อาจทำให้ลูกค้าหนีไปร้านอื่น!</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETING -->
+    <div class="section" id="marketing">
+      <h2 class="section-title" data-i18n="mkt_title">Marketing AI</h2>
+      <div class="section-sub" data-i18n="mkt_sub">Auto-generate content · AI Prompt Library v3.0</div>
+      <div class="grid grid-3 mb-14">
+        <div class="card"><div class="card-title mb-14">📷 Instagram Post — Zooties</div>
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px">🍇✨ ZOOTIES is taking over DANK!<br><br>ยอดขายอันดับ 1 🏆<br>28% THC · Hybrid · กลิ่น fruity เข้มข้น<br>฿220/g — Premium สุดในร้าน<br><br>🔥 ขายเร็วมาก — มาก่อนได้ก่อน!<br>📍 DANK Cannabis Club<br><br>#DANKCannabisClub #Zooties #TopSeller</div>
+          <div style="display:flex;gap:8px"><button class="btn btn-green">✅ Approve</button><button class="btn btn-outline">✏️ Edit</button><button class="btn btn-outline">🔄 Regen</button></div>
+        </div>
+        <div class="card"><div class="card-title mb-14">💚 LINE OA Broadcast</div>
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px">🌿 สวัสดีสมาชิก DANK!<br><br>เดือนนี้ขายดีสุด:<br><strong>Zooties</strong> 🍇 + <strong>Gelato X</strong> ✨<br><br>⚠️ Bangkok Lemon & The Toad หมดแล้ว!<br>แต่มีสายพันธุ์ใหม่เข้าทุกอาทิตย์ 💪<br><br>DANK Cannabis Club 🌿</div>
+          <div style="display:flex;gap:8px"><button class="btn btn-green">✅ Send</button><button class="btn btn-outline">✏️ Edit</button></div>
+        </div>
+        <div class="card"><div class="card-title mb-14">🎯 Campaign Ideas</div>
+          <div class="insight-item green"><span>🔥</span><span class="insight-text"><strong>Happy Hour</strong> 3-5PM — ลด 10% กระตุ้น early traffic</span></div>
+          <div class="insight-item yellow"><span>🍷</span><span class="insight-text"><strong>Livity420 Promo</strong> — THC Wine ทำ demo + ราคาพิเศษ</span></div>
+          <div class="insight-item green"><span>🌿</span><span class="insight-text"><strong>New Strain Launch</strong> — แจ้ง LINE OA ทันทีที่ restock The Toad</span></div>
+          <div class="insight-item yellow"><span>📸</span><span class="insight-text"><strong>Cannabis + Bar Combo</strong> — Bundle deal ดึงลูกค้าอยู่นานขึ้น</span></div>
+        </div>
+      </div>
+
+      <!-- AI TEAM ROLES -->
+      <div class="card mb-14">
+        <div class="card-header"><span class="card-title">🤖 AI Marketing Team — เลือก Role</span><span class="badge badge-green">11 roles</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 8px">
+          <button class="role-btn active" onclick="selectRole(this,'strategist')">🎯 CMO / Strategist</button>
+          <button class="role-btn" onclick="selectRole(this,'copywriter')">✍️ Copywriter</button>
+          <button class="role-btn" onclick="selectRole(this,'paidads')">💰 Paid Ads</button>
+          <button class="role-btn" onclick="selectRole(this,'seo')">🔍 SEO / GEO</button>
+          <button class="role-btn" onclick="selectRole(this,'social')">📱 Social Media</button>
+          <button class="role-btn" onclick="selectRole(this,'email')">📧 CRM / Email</button>
+          <button class="role-btn" onclick="selectRole(this,'analyst')">📊 Analyst</button>
+          <button class="role-btn" onclick="selectRole(this,'creative')">🎨 Creative</button>
+          <button class="role-btn" onclick="selectRole(this,'thavoice')">🇹🇭 Thai Voice</button>
+          <button class="role-btn" onclick="selectRole(this,'automation')">⚡ Automation</button>
+          <button class="role-btn" onclick="selectRole(this,'influencer')">⭐ Influencer</button>
+        </div>
+        <div id="roleDesc" style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;color:var(--text2);line-height:1.7"></div>
+      </div>
+
+      <!-- PROMPT LIBRARY -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📚 AI Marketing Prompt Library</span>
+          <span class="badge badge-green">60+ prompts · Thai Market 2026</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <input id="promptSearch" type="text" placeholder="🔍 ค้นหา prompt..." style="width:100%;background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text1);font-size:13px;outline:none" oninput="filterPrompts()">
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px" id="sectionTabs">
+          <button class="sect-tab active" onclick="filterSection(this,'all')">🌿 ทั้งหมด</button>
+          <button class="sect-tab" onclick="filterSection(this,'strategy')">🎯 Strategy</button>
+          <button class="sect-tab" onclick="filterSection(this,'copy')">✍️ Copywriting</button>
+          <button class="sect-tab" onclick="filterSection(this,'ads')">💰 Paid Ads</button>
+          <button class="sect-tab" onclick="filterSection(this,'seo')">🔍 SEO</button>
+          <button class="sect-tab" onclick="filterSection(this,'social')">📱 Social</button>
+          <button class="sect-tab" onclick="filterSection(this,'crm')">📧 CRM</button>
+          <button class="sect-tab" onclick="filterSection(this,'analytics')">📊 Analytics</button>
+          <button class="sect-tab" onclick="filterSection(this,'creative')">🎨 Creative</button>
+        </div>
+        <div id="promptGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px"></div>
+        <div id="promptCount" style="text-align:center;color:var(--text3);font-size:12px;margin-top:12px"></div>
+      </div>
+    </div>
+
+    <style>
+      .role-btn{background:#0d2a0d;border:1px solid var(--border);border-radius:20px;padding:6px 14px;color:var(--text2);font-size:12px;cursor:pointer;transition:.2s}
+      .role-btn:hover,.role-btn.active{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green)}
+      .sect-tab{background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--text3);font-size:12px;cursor:pointer;transition:.2s}
+      .sect-tab:hover,.sect-tab.active{background:rgba(74,222,128,.12);border-color:var(--green);color:var(--green)}
+      .prompt-card{background:#0d1a0d;border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+      .prompt-card:hover{border-color:rgba(74,222,128,.4)}
+      .prompt-tag{font-size:10px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.2);border-radius:4px;padding:2px 7px;color:var(--green);display:inline-block}
+      .prompt-title{font-size:13px;font-weight:600;color:var(--text1)}
+      .prompt-when{font-size:11px;color:var(--text3);line-height:1.5}
+      .prompt-body{background:#060e06;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:10px;font-size:11px;color:var(--text2);white-space:pre-wrap;line-height:1.6;max-height:140px;overflow:hidden;transition:max-height .3s;font-family:monospace}
+      .prompt-body.expanded{max-height:600px}
+      .copy-btn{background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);border-radius:6px;padding:5px 12px;color:var(--green);font-size:11px;cursor:pointer;align-self:flex-start;transition:.2s}
+      .copy-btn:hover{background:rgba(74,222,128,.3)}
+      .copy-btn.copied{background:rgba(74,222,128,.4);color:#fff}
+    </style>
+
+    <script>
+    // ──────────────────────────────────────
+    // AI ROLE DESCRIPTIONS
+    // ──────────────────────────────────────
+    const roleData = {
+      strategist:{icon:'🎯',name:'CMO / Brand Strategist',desc:'วางทิศทางธุรกิจ · Positioning · OKR · Pricing · Go-To-Market\n\nถามก่อนส่ง:\n• ธุรกิจขายอะไร เป้าหมาย Marketing หลักคืออะไร?\n• งบ Marketing ต่อเดือนประมาณเท่าไหร่?\n• Channel ที่ใช้อยู่คืออะไร?\n\n→ ใช้ Prompt หมวด Strategy เพื่อวาง Plan ที่วัดผลได้จริง'},
+      copywriter:{icon:'✍️',name:'Copywriter / Content Creator',desc:'Ad Copy · TikTok Script · Landing Page · Newsletter · Live Commerce\n\nถามก่อนส่ง:\n• สินค้าที่จะ Promote คืออะไร? จุดเด่นหลักคืออะไร?\n• ลูกค้าเป็นใคร — อายุ อาชีพ ปัญหาที่มี?\n• Tone ที่ต้องการ — เป็นกันเอง หรือมืออาชีพ?\n\n→ ใช้ Prompt หมวด Copywriting เพื่อเขียน Content ทุก Format'},
+      paidads:{icon:'💰',name:'Paid Ads Specialist',desc:'Facebook Ads · TikTok Ads · LINE Ads · Google Ads · ROAS Optimization\n\nถามก่อนส่ง:\n• งบ Ads ต่อวัน/เดือน?\n• เคยยิงมาก่อนไหม — ผลเป็นยังไง?\n• Platform ที่อยากใช้คืออะไร?\n\n→ ใช้ Prompt หมวด Paid Ads เพื่อ Setup หรือ Diagnose แคมเปญ'},
+      seo:{icon:'🔍',name:'SEO / GEO Specialist',desc:'Keyword Research · Content Brief · Local SEO · GEO (AI Search Visibility)\n\nถามก่อนส่ง:\n• ธุรกิจทำอะไร พื้นที่ให้บริการที่ไหน?\n• มีเว็บไซต์แล้วหรือยัง?\n• ต้องการ Rank Google หรืออยากให้ AI พูดถึงธุรกิจเรา?\n\n→ ใช้ Prompt หมวด SEO เพื่อ Plan Content ที่ Rank ได้จริง'},
+      social:{icon:'📱',name:'Social Media Manager',desc:'Content Calendar · Platform Selection · KOC / Influencer · LINE OA Plan\n\nถามก่อนส่ง:\n• ใช้ Platform ไหนอยู่ มีเวลาทำ Content กี่ชั่วโมง/สัปดาห์?\n• เป้าหมาย Social คืออะไร?\n\n→ ใช้ Prompt หมวด Social Media เพื่อวาง Calendar และ Influencer Plan'},
+      email:{icon:'📧',name:'CRM / Email Marketing',desc:'Welcome Sequence · Broadcast · Chatbot Flow · Re-engagement\n\nถามก่อนส่ง:\n• ใช้ Email หรือ LINE OA?\n• มีโปรโมชั่นสำหรับลูกค้าใหม่ไหม?\n\n→ ใช้ Prompt หมวด CRM เพื่อเขียน Sequence ที่ Convert ได้จริง'},
+      analyst:{icon:'📊',name:'Marketing Analyst',desc:'Campaign Audit · Attribution · A/B Test · Customer Segmentation\n\nถามก่อนส่ง:\n• มี Data อะไรบ้าง — Facebook Insight, GA, ยอดขาย?\n• ต้องการวิเคราะห์อะไร — Performance, Segment, Attribution?\n\n→ ใช้ Prompt หมวด Analytics เพื่อ Audit และปรับกลยุทธ์'},
+      creative:{icon:'🎨',name:'Creative Director',desc:'Visual Direction · Brand Identity · Video Concept · Thumbnail · Packaging\n\nถามก่อนส่ง:\n• Brand Personality เป็นแบบไหน?\n• งาน Creative ที่ต้องการคืออะไร — Social Post, Video, Logo?\n\n→ ใช้ Prompt หมวด Creative เพื่อ Brief งานออกแบบได้ชัดขึ้น'},
+      thavoice:{icon:'🇹🇭',name:'Thai Voice Specialist',desc:'Thai Copywriting Tone · Natural Thai · Gen Z vs Professional · Platform Tone\n\nRole นี้ช่วย:\n• ตรวจ Copy ที่เขียนว่า "ฟังดูไทยจริงๆ" ไหม\n• แปลง Copy ภาษาอังกฤษเป็นไทยที่เป็นธรรมชาติ\n• ปรับ Tone ตาม Platform\n\n→ ส่ง Copy ที่เขียนแล้วให้ Role นี้ตรวจก่อน Publish'},
+      automation:{icon:'⚡',name:'Marketing Automation',desc:'Chatbot Flow · LINE OA Automation · CRM Automation · Lead Scoring\n\nถามก่อนส่ง:\n• ใช้ Tool อะไร — LINE OA / ManyChat / HubSpot?\n• อยาก Automate อะไร — Welcome, Follow-up, Retarget?\n\n→ ใช้ Prompt หมวด Automation เพื่อ Map Flow ก่อน Build'},
+      influencer:{icon:'⭐',name:'Influencer Marketing',desc:'KOL Selection · Brief · Contract · Campaign · Measurement\n\nถามก่อนส่ง:\n• งบ Influencer ต่อแคมเปญ?\n• Platform เป้าหมาย — TikTok / Instagram / Lemon8?\n• สินค้าที่จะ Promote?\n\n→ ใช้ Prompt หมวด Influencer เพื่อวาง Brief และวัดผล ROI ได้จริง'}
+    };
+    function selectRole(btn,key){
+      document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const r=roleData[key];
+      document.getElementById('roleDesc').innerHTML=`<strong style="color:var(--green)">${r.icon} ${r.name}</strong><br><br>${r.desc.replace(/\n/g,'<br>')}`;
+    }
+    selectRole(document.querySelector('.role-btn'),'strategist');
+
+    // ──────────────────────────────────────
+    // PROMPT LIBRARY DATA
+    // ──────────────────────────────────────
+    const prompts=[
+      // STRATEGY
+      {s:'strategy',code:'STRATEGY-90DAY',title:'📌 วาง Marketing Plan 90 วัน',when:'เริ่มต้นธุรกิจ / เปิด Product ใหม่ / ไม่มีแผนชัดเจน',body:`[STRATEGY-90DAY]
+ฉันเป็นเจ้าของ [ประเภทธุรกิจ] ขาย [สินค้า/บริการ] ราคา [ราคา]
+ลูกค้าหลักคือ [อายุ, อาชีพ, ปัญหาที่มี]
+งบ Marketing ที่มี: [X] บาท/เดือน
+ช่องทางปัจจุบัน: [Facebook / TikTok / LINE OA / ยังไม่มี]
+ปัญหาตอนนี้: [เช่น ไม่มียอดขาย / ยอดขายลด / ไม่รู้จะทำอะไรก่อน]
+
+ช่วยวาง Marketing Plan 90 วันที่ทำคนเดียวได้จริง
+แบ่งเป็นเดือน 1/2/3 พร้อม Budget Allocation และ KPI ที่วัดผลได้`},
+      {s:'strategy',code:'POSITIONING',title:'📌 หา Positioning และ UVP',when:'รู้สึกว่าธุรกิจไม่แตกต่าง / คู่แข่งเยอะ / ลูกค้าไม่รู้ว่าทำไมต้องเลือกเรา',body:`[POSITIONING]
+ธุรกิจฉัน: [ประเภทธุรกิจ + สินค้า/บริการ]
+คู่แข่งหลัก: [ชื่อหรือประเภท]
+จุดแข็งที่ฉันคิดว่ามี: [อะไร]
+กลุ่มลูกค้าที่ต้องการ: [ใคร]
+ราคาเทียบคู่แข่ง: [แพงกว่า/ถูกกว่า/ใกล้เคียง]
+
+ช่วยวิเคราะห์ Positioning และหา UVP ที่ทำให้ฉันแตกต่าง
+พร้อม Tagline 3 แบบ และคำแนะนำว่าควร Communicate อย่างไร`},
+      {s:'strategy',code:'GTM-LAUNCH',title:'📌 วาง Go-To-Market Plan ก่อน Launch',when:'จะ Launch สินค้าใหม่ / เปิดร้านใหม่ / เข้าตลาดใหม่',body:`[GTM-LAUNCH]
+สิ่งที่จะ Launch: [สินค้า/บริการ/ร้าน]
+ราคา: [X บาท]
+กลุ่มเป้าหมาย: [อายุ, อาชีพ, ปัญหา, Platform ที่ใช้]
+จะ Launch ในอีก: [X วัน/สัปดาห์]
+งบที่มีสำหรับ Launch: [X บาท]
+คู่แข่งที่มีอยู่แล้ว: [มี/ไม่มี]
+
+ช่วยวาง Go-To-Market Plan ละเอียด
+รวม Pre-Launch / Launch Day / Post-Launch
+และแนะนำ Offer ที่ดึงดูดลูกค้ากลุ่มแรก`},
+      {s:'strategy',code:'BUDGET-ALLOCATION',title:'📌 แบ่ง Budget Marketing ให้คุ้มค่า',when:'มีงบจำกัด ไม่รู้จะเทเงินไป Channel ไหนดี',body:`[BUDGET-ALLOCATION]
+ธุรกิจ: [ประเภท] ขาย [สินค้า/บริการ] ราคา [ราคา]
+งบ Marketing รวม: [X] บาท/เดือน
+กลุ่มลูกค้า: [อายุ, พฤติกรรมการซื้อ]
+เป้าหมายหลัก: [ยอดขาย / New Customer / Brand Awareness]
+Channel ที่เคยลองแล้ว: [ผลเป็นยังไง]
+
+ช่วยแนะนำว่าควรแบ่งงบไปแต่ละ Channel เท่าไหร่
+พร้อมเหตุผลและ KPI ที่ควรติดตาม`},
+      {s:'strategy',code:'COMPETITOR-ANALYSIS',title:'📌 วิเคราะห์คู่แข่ง',when:'ต้องการรู้ว่าคู่แข่งทำอะไร และจะสู้ยังไง',body:`[COMPETITOR-ANALYSIS]
+ธุรกิจฉัน: [ประเภท + สินค้า/บริการ + ราคา]
+คู่แข่งที่ระบุ: [ชื่อ 2-3 ราย]
+สิ่งที่คู่แข่งทำ (ที่รู้): [โฆษณาอะไร / ขายราคาไหน / Platform ไหน]
+
+ช่วยวิเคราะห์ว่าคู่แข่งน่าจะมี Strategy อะไร
+และฉันควรสู้ตรงๆ หรือหา Niche ที่ต่างออกไป
+พร้อมแนะนำ 3 วิธีที่ฉันสามารถสร้างความแตกต่างได้จริง`},
+
+      // COPYWRITING
+      {s:'copy',code:'FB-AD-COPY',title:'📌 เขียน Facebook Ad Copy ครบชุด',when:'ต้องการยิง Facebook Ads และต้องการ Copy ที่พร้อมใช้',body:`[FB-AD-COPY]
+สินค้า/บริการ: [ชื่อ + อธิบายสั้นๆ]
+ราคา: [X บาท] จุดเด่นหลัก: [2-3 ข้อ]
+กลุ่มเป้าหมาย: [อายุ, อาชีพ, ปัญหาที่มี]
+Tone: [เป็นกันเอง / มืออาชีพ / Urgent / Emotional]
+Social Proof ที่มี: [รีวิว / ตัวเลข / รางวัล — ถ้าไม่มีบอกว่าไม่มี]
+
+เขียน Ad Copy 3 Version แบบ Angle ต่างกัน:
+  Version A: Pain Point
+  Version B: Benefit/Result
+  Version C: Social Proof/Trust
+
+แต่ละ Version ให้มี: Hook / Primary Text / Headline (≤40 ตัว) / CTA`},
+      {s:'copy',code:'TIKTOK-SCRIPT',title:'📌 เขียน TikTok / Reels Script',when:'จะทำวิดีโอ TikTok หรือ Reels แต่ไม่รู้จะพูดอะไร',body:`[TIKTOK-SCRIPT]
+สินค้า/บริการ: [ชื่อ + อธิบาย]
+วัตถุประสงค์: [Awareness / ขายตรง / รีวิว / สอน]
+ความยาววิดีโอ: [15 / 30 / 60 วินาที]
+Platform: [TikTok / Instagram Reels / Facebook]
+Tone: [สนุก / จริงจัง / ให้ความรู้ / Relatable]
+เป็นใครพูด: [เจ้าของร้าน / พนักงาน / ไม่ต้องมีคน (On-screen Text)]
+
+เขียน Script ครบ:
+  - Hook บรรทัดแรก (ทำให้หยุดดูใน 3 วินาที)
+  - เนื้อหาหลัก
+  - CTA ปิดท้าย
+  - แนะนำ Sound/Effect ถ้าเหมาะสม`},
+      {s:'copy',code:'CAPTION-MULTI-PLATFORM',title:'📌 เขียน Caption หลาย Platform',when:'มีรูป/คอนเทนต์อยู่แล้ว แต่ไม่รู้จะเขียน Caption ยังไง',body:`[CAPTION-MULTI-PLATFORM]
+รูปที่จะโพสต์: [อธิบายว่าในรูปมีอะไร]
+สินค้า/บริการ: [ชื่อ + จุดเด่น]
+Tone: [เป็นกันเอง / มืออาชีพ / สนุก / Informative]
+
+เขียน Caption 4 Version สำหรับ:
+  1. Facebook (ยาวได้ มี Story)
+  2. Instagram (Hook ดี มี Hashtag 10-15 อัน)
+  3. TikTok (สั้น ตรง มี Keyword + Hashtag)
+  4. Lemon8 (Diary Style — อ่านแล้วรู้สึกเหมือนเพื่อนรีวิว)`},
+      {s:'copy',code:'LINE-BROADCAST',title:'📌 เขียน LINE OA Broadcast Message',when:'จะส่ง Broadcast ให้ลูกค้าใน LINE OA — โปรโมชั่น / ข่าวสาร / สินค้าใหม่',body:`[LINE-BROADCAST]
+วัตถุประสงค์: [โปรโมชั่น / New Product / Flash Sale / Content]
+เนื้อหาที่ต้องการสื่อ: [อธิบายรายละเอียด]
+โปรโมชั่น: [ลด X% / ซื้อ X แถม X / ส่งฟรีถึง X]
+ระยะเวลา: [X วัน หรือ ถึงวันที่ X]
+CTA ที่ต้องการ: [กดสั่ง / ทักมา / กดลิงก์]
+
+เขียน LINE Broadcast Message ที่:
+  - Hook ดึงดูดใน 1 ประโยคแรก
+  - ข้อมูลครบ กระชับ
+  - มีปุ่ม Quick Reply หรือ CTA ท้ายสุด
+  - ความยาวไม่เกิน 300 ตัวอักษร`},
+      {s:'copy',code:'LANDING-PAGE-TH',title:'📌 เขียน Landing Page ภาษาไทย',when:'ต้องการหน้า Landing Page สำหรับสินค้า/บริการ หรือ Lead Generation',body:`[LANDING-PAGE-TH]
+สินค้า/บริการ: [ชื่อ + อธิบายละเอียด]
+ราคา: [X บาท] หรือ [Free / Quote / Contact]
+กลุ่มเป้าหมาย: [ใคร / ปัญหาที่มี]
+จุดเด่น 3-5 ข้อ: [...]
+Social Proof: [รีวิว / จำนวนลูกค้า / รางวัล]
+CTA ที่ต้องการ: [ซื้อเลย / ลงทะเบียน / ทักมา / ดาวน์โหลด]
+
+เขียน Landing Page ครบทุก Section:
+  1. Hero Headline + Sub-headline
+  2. Pain Point (ปัญหาที่ลูกค้าเจอ)
+  3. Solution (เราแก้ยังไง)
+  4. Features/Benefits
+  5. Social Proof
+  6. Offer + Guarantee
+  7. FAQ (3-5 ข้อ)
+  8. CTA ปิดท้าย`},
+      {s:'copy',code:'LIVE-SCRIPT',title:'📌 เขียน Script สำหรับ Live Commerce',when:'จะ Live บน TikTok / Facebook / Shopee และต้องการ Script ช่วย',body:`[LIVE-SCRIPT]
+Platform: [TikTok Live / Facebook Live / Shopee Live]
+สินค้าที่จะขาย: [ชื่อ + ราคา + จุดเด่น 3 ข้อ]
+ระยะเวลา Live: [X ชั่วโมง]
+Tone: [สนุก / มืออาชีพ / เพื่อนแนะนำ]
+มีโปรโมชั่นพิเศษไหม: [ลด X% / แถม X / ส่งฟรี]
+
+เขียน Live Script ครบ:
+  - เปิด Live (5 นาทีแรก)
+  - Hook สินค้าแต่ละตัว
+  - จังหวะสร้าง Urgency
+  - การ Handle คำถามใน Chat
+  - ปิด Live`},
+
+      // PAID ADS
+      {s:'ads',code:'FB-CAMPAIGN',title:'📌 วาง Facebook Ads Campaign ครบวงจร',when:'อยากยิง Facebook Ads ครั้งแรก หรือ Restructure Campaign ใหม่',body:`[FB-CAMPAIGN]
+สินค้า/บริการ: [ชื่อ + ราคา + Margin โดยประมาณ]
+เป้าหมาย: [ยอดขาย / Lead / Awareness]
+งบ: [X] บาท/วัน หรือ บาท/เดือน
+กลุ่มเป้าหมาย: [อายุ, เพศ, อาชีพ, ความสนใจ, พื้นที่]
+เคยยิงมาก่อนไหม: [ไม่เคย / เคย — ผลเป็นยังไง]
+Pixel / CAPI ตั้งแล้วยัง: [มี/ไม่มี]
+
+ช่วยวาง Campaign Structure ครบ:
+  - Objective ที่ควรเลือก
+  - Ad Set จำนวนกี่ชุด + Audience แต่ละชุด
+  - Creative Direction แต่ละ Ad
+  - Budget แบ่งยังไง
+  - KPI เป้าหมายและ Timeline`},
+      {s:'ads',code:'FB-DIAGNOSE',title:'📌 วินิจฉัย Facebook Ads ที่ไม่ Work',when:'ยิง Ads อยู่แต่ผลไม่ดี ไม่รู้ว่าปัญหาอยู่ที่ไหน',body:`[FB-DIAGNOSE]
+Metrics ปัจจุบัน:
+  งบที่ใช้ไป: [X] บาท ใน [X] วัน
+  Reach: [X] | Impression: [X] | Frequency: [X]
+  CTR: [X]% | CPC: [X] บาท | CPM: [X] บาท
+  ROAS: [X]x | CPA: [X] บาท
+  Conversion ที่เกิด: [X ครั้ง]
+สินค้า: [ชื่อ + ราคา + Gross Margin โดยประมาณ]
+Creative ที่ใช้: [ภาพ/วิดีโอ + Hook คืออะไร]
+Landing Page: [ไปหน้าไหน]
+Audience: [ตั้งยังไง]
+
+ช่วยวินิจฉัยว่าปัญหาอยู่ที่ไหน และควรทำอะไรก่อน`},
+      {s:'ads',code:'TIKTOK-ADS',title:'📌 วาง TikTok Ads Campaign',when:'ต้องการยิง TikTok Ads ครั้งแรก หรือเพิ่ม TikTok Shop Ads',body:`[TIKTOK-ADS]
+สินค้า: [ชื่อ + ราคา + หมวดหมู่]
+เป้าหมาย: [Traffic / Conversion / TikTok Shop / Live Views]
+งบ: [X] บาท/วัน
+กลุ่มเป้าหมาย: [อายุ, เพศ, ความสนใจ]
+มี TikTok Shop แล้วยัง: [มี/ไม่มี]
+Creative ที่มี: [วิดีโอ / ภาพ / ยังไม่มี]
+
+ช่วยวาง TikTok Ads Strategy:
+  - Campaign Type ที่เหมาะ (Smart+ / Manual)
+  - Audience Targeting
+  - Creative Direction
+  - TikTok Search Ads Keywords
+  - KPI ที่ควรติดตาม`},
+      {s:'ads',code:'ROAS-CALCULATOR',title:'📌 คำนวณ Break-even ROAS และ Max CPA',when:'ต้องการรู้ว่า ROAS เท่าไหร่ถึงจะไม่ขาดทุน',body:`[ROAS-CALCULATOR]
+ราคาขาย: [X] บาท
+ต้นทุนสินค้า: [X] บาท
+ค่าส่ง: [X] บาท
+ค่า Platform Fee: [X]%
+ค่า Payment Gateway: [X]%
+
+คำนวณ:
+  1. Gross Margin จริง (%)
+  2. Break-even ROAS
+  3. Maximum CPA ที่ยอมรับได้
+  4. ถ้า ROAS ปัจจุบัน [X]x — กำไรหรือขาดทุนเท่าไหร่?`},
+      {s:'ads',code:'LINE-ADS',title:'📌 วาง LINE Ads Strategy',when:'ต้องการใช้ LINE Ads เพิ่ม Follower LINE OA หรือ Retarget ลูกค้า',body:`[LINE-ADS]
+วัตถุประสงค์: [เพิ่ม LINE OA Follower / Website Traffic / Conversion]
+สินค้า/บริการ: [...]
+งบ: [X] บาท/เดือน
+กลุ่มเป้าหมาย: [อายุ, เพศ, พฤติกรรม]
+มี LINE OA แล้วไหม: [มี/ไม่มี]
+Rich Menu ตั้งแล้วยัง: [มี/ไม่มี]
+
+ช่วยวาง LINE Ads Strategy:
+  - Format ที่เหมาะ (Timeline / Chat / Display)
+  - Targeting ที่แนะนำ
+  - Creative ที่ควรใช้
+  - วิธีวัดผล`},
+
+      // SEO
+      {s:'seo',code:'KEYWORD-RESEARCH',title:'📌 Keyword Research สำหรับธุรกิจไทย',when:'ต้องการรู้ว่าลูกค้าค้นหาคำอะไรใน Google และ TikTok',body:`[KEYWORD-RESEARCH]
+ธุรกิจ: [ประเภทธุรกิจ + สินค้า/บริการ]
+พื้นที่ให้บริการ: [ทั่วประเทศ / จังหวัด / พื้นที่เฉพาะ]
+กลุ่มลูกค้า: [อายุ, อาชีพ, ปัญหา]
+เว็บไซต์ปัจจุบัน: [ใหม่/เก่า]
+คู่แข่งหลัก: [ชื่อเว็บ ถ้ารู้]
+
+ช่วย Research Keyword แบ่งเป็น:
+  1. Keyword ภาษาไทย (Short-tail + Long-tail)
+  2. Keyword Mix Thai-English ที่คนใช้จริง
+  3. TikTok Keyword (Gen Z ค้นหา)
+  4. แบ่งตาม Search Intent (Informational/Commercial/Transactional)
+  5. Local Keyword (ถ้า Relevant)`},
+      {s:'seo',code:'SEO-CONTENT-BRIEF',title:'📌 เขียน Content Brief สำหรับบทความ SEO',when:'ต้องการบทความที่ Rank บน Google และถูก AI อ้างอิง',body:`[SEO-CONTENT-BRIEF]
+หัวข้อบทความ: [หัวข้อที่ต้องการ]
+Keyword หลัก: [keyword ที่ต้องการ Rank]
+เว็บไซต์: [ชื่อเว็บ + ธุรกิจทำอะไร]
+กลุ่มเป้าหมาย: [ใครจะอ่านบทความนี้]
+เป้าหมายบทความ: [ให้ความรู้ / Rank Google / ดึง Lead / ขาย]
+คู่แข่งที่ Rank อยู่: [URL ถ้ารู้ หรือบอกว่าไม่รู้]
+
+เขียน Content Brief ครบ:
+  1. Title Tag + Meta Description
+  2. Outline (H1/H2/H3)
+  3. FAQ Section สำหรับ GEO
+  4. Internal Link Suggestions
+  5. CTA ที่เหมาะสม`},
+      {s:'seo',code:'GEO-SETUP',title:'📌 GEO Setup — ทำให้ AI แนะนำธุรกิจเรา',when:'ต้องการให้ ChatGPT / Gemini / Perplexity พูดถึงธุรกิจเรา',body:`[GEO-SETUP]
+ธุรกิจ: [ชื่อ + ประเภท + สินค้า/บริการ]
+ตลาดเป้าหมาย: [ภาษาไทย / English / ทั้งคู่]
+คำถามที่อยากให้ AI ตอบแล้วแนะนำเรา:
+  เช่น "ร้านขายอะไรในกรุงเทพที่ดีที่สุด"
+
+ช่วยวาง GEO Strategy:
+  1. Q&A Content ที่ควรเขียน
+  2. Schema Markup ที่ต้องตั้ง
+  3. Platform ที่ควรสร้าง Presence (Pantip/YouTube/Reddit)
+  4. วิธีเช็คว่า AI เริ่มอ้างอิงเราแล้วหรือยัง`},
+      {s:'seo',code:'LOCAL-SEO',title:'📌 Local SEO สำหรับธุรกิจมีหน้าร้าน',when:'มีร้านค้าหรือสาขา ต้องการให้คนในพื้นที่ Find เจอ',body:`[LOCAL-SEO]
+ชื่อร้าน: [...]
+ประเภทธุรกิจ: [...]
+ที่ตั้ง: [จังหวัด/เขต/ย่าน]
+มี Google Business Profile แล้วไหม: [มี/ไม่มี]
+จำนวน Google Reviews ตอนนี้: [X รีวิว / ดาว X]
+เว็บไซต์: [มี/ไม่มี]
+
+ช่วยทำ Local SEO Checklist:
+  - สิ่งที่ต้องทำทันที (Quick Win)
+  - สิ่งที่ต้องทำรายเดือน
+  - วิธีขอ Reviews จากลูกค้าแบบที่ได้จริง
+  - Keyword Local ที่ควร Target`},
+
+      // SOCIAL
+      {s:'social',code:'PLATFORM-SELECTION',title:'📌 เลือก Platform ที่เหมาะกับธุรกิจ',when:'ไม่รู้ควร Focus Platform ไหน หรือทำหมดแต่ไม่ไหว',body:`[PLATFORM-SELECTION]
+ธุรกิจ: [ประเภท + สินค้า/บริการ]
+กลุ่มลูกค้าหลัก: [อายุ, เพศ, ไลฟ์สไตล์]
+ทำ Social Media คนเดียว: [ใช่/ไม่ใช่]
+เวลาที่มีต่อสัปดาห์: [X ชั่วโมง]
+งบสำหรับ Content: [X บาท/เดือน]
+Platform ที่ใช้อยู่: [ระบุ + ผลลัพธ์ที่ได้]
+
+ช่วยแนะนำว่าควร Focus Platform ไหนก่อน
+พร้อม Roadmap ว่าเมื่อไหร่ควรขยายไป Platform ถัดไป`},
+      {s:'social',code:'CONTENT-CALENDAR',title:'📌 สร้าง Content Calendar 1 เดือน',when:'ต้องการ Content Plan รายเดือนที่ทำได้จริง',body:`[CONTENT-CALENDAR]
+ธุรกิจ: [ประเภท + สินค้า/บริการ]
+Platform: [Facebook / Instagram / TikTok / ทั้งหมด]
+โพสต์ได้: [X ครั้ง/สัปดาห์]
+เดือนที่ทำ: [เดือน/ปี]
+มีเทศกาลหรือ Event สำคัญในเดือนนี้: [ระบุ]
+Tone: [เป็นกันเอง / มืออาชีพ / สนุก]
+
+ทำ Content Calendar ครบ:
+  - หัวข้อแต่ละโพสต์
+  - Format (Reels/Post/Story/Carousel)
+  - Hook หรือ Caption Draft สั้นๆ
+  - Platform
+  แบ่งเป็น Education / Entertainment / Promotion 80/20`},
+      {s:'social',code:'KOC-CAMPAIGN',title:'📌 วาง KOC / Micro-Influencer Campaign',when:'ต้องการใช้ Influencer แต่งบน้อย ไม่รู้จะเริ่มยังไง',body:`[KOC-CAMPAIGN]
+สินค้า: [ชื่อ + ราคา + จุดเด่น]
+งบ Influencer: [X] บาท/เดือน (หรือแลก Product)
+Platform เป้าหมาย: [TikTok / Instagram / Lemon8 / Facebook]
+กลุ่มลูกค้า: [อายุ, ไลฟ์สไตล์, ความสนใจ]
+เคยทำ Influencer Marketing ไหม: [ไม่เคย / เคย — ผลเป็นยังไง]
+
+ช่วยวาง KOC Campaign:
+  1. Profile KOC ที่ควรหา (Follower Range / Niche)
+  2. Brief ที่ต้องส่งให้ KOC
+  3. Key Message ที่ต้องพูดถึง
+  4. วิธีวัดผล
+  5. Platform หาตัว KOC (Tellscore / AnyTag / ค้นหาเอง)`},
+      {s:'social',code:'LINE-OA-PLAN',title:'📌 วาง LINE OA Content Plan',when:'มี LINE OA แต่ไม่รู้จะส่งอะไร เมื่อไหร่ หรือกี่ครั้ง',body:`[LINE-OA-PLAN]
+ธุรกิจ: [ประเภท + สินค้า/บริการ]
+จำนวน LINE OA Follower ปัจจุบัน: [X คน]
+ความถี่ที่อยากส่ง: [X ครั้ง/เดือน]
+เป้าหมาย LINE OA: [ขายสินค้า / Retain ลูกค้า / ให้ข้อมูล]
+มี Chatbot ไหม: [มี/ไม่มี]
+
+ช่วยวาง LINE OA Content Plan:
+  - Broadcast Calendar 1 เดือน
+  - Welcome Message Flow (ถ้ายังไม่มี)
+  - Rich Menu แนะนำ (ปุ่มอะไรบ้าง)
+  - Segment ลูกค้าที่ควรทำ`},
+
+      // CRM
+      {s:'crm',code:'WELCOME-SEQUENCE',title:'📌 เขียน Welcome Sequence 5 ฉบับ',when:'ต้องการ Email / LINE OA ต้อนรับลูกค้าใหม่ที่สมัครรับข่าวสาร',body:`[WELCOME-SEQUENCE]
+ธุรกิจ: [ประเภท + สินค้า/บริการ]
+ช่องทาง: [Email / LINE OA]
+คนสมัครเพราะอะไร: [Lead Magnet ที่ให้ / สมัครจาก Ad / สมัครเอง]
+Tone: [เป็นกันเอง / มืออาชีพ / Inspiring]
+มีโปรโมชั่นสำหรับคนใหม่ไหม: [มี X% / ไม่มี]
+
+เขียน Sequence 5 ฉบับ ใน 7 วัน:
+  ฉบับที่ 1 (วันที่ 0): ต้อนรับ + ส่ง Lead Magnet/ของขวัญ
+  ฉบับที่ 2 (วันที่ 1): Brand Story
+  ฉบับที่ 3 (วันที่ 3): Value Content
+  ฉบับที่ 4 (วันที่ 5): Social Proof
+  ฉบับที่ 5 (วันที่ 7): First Offer`},
+      {s:'crm',code:'PROMO-MESSAGE',title:'📌 เขียน Promotional Email / LINE Broadcast',when:'มีโปรโมชั่น Flash Sale ต้องการส่งหา Existing Customer',body:`[PROMO-MESSAGE]
+ช่องทาง: [Email / LINE OA Broadcast]
+โปรโมชั่น: [ลด X% / ซื้อ X แถม X / Flash Sale / New Product]
+ระยะเวลาโปรโมชั่น: [วันที่ X ถึง X หรือ X ชั่วโมง]
+สินค้าที่โปรโมท: [ชื่อ + ราคาปกติ + ราคาโปร]
+ข้อเสนอพิเศษเพิ่มเติม: [ส่งฟรี / ของแถม / Voucher]
+CTA: [กดซื้อ / ทักมา / กดลิงก์]
+
+เขียน:
+  - Subject Line 3 แบบ (เลือกที่ดีสุด)
+  - Message เต็ม (ไม่เกิน 300 ตัวอักษรสำหรับ LINE)
+  - ปุ่ม CTA`},
+      {s:'crm',code:'RE-ENGAGEMENT',title:'📌 เขียน Re-engagement Campaign',when:'มีลูกค้าที่ไม่ Active มานาน ต้องการดึงกลับมา',body:`[RE-ENGAGEMENT]
+ช่องทาง: [Email / LINE OA]
+นิยาม "ไม่ Active": [ไม่ซื้อ/ไม่เปิด X เดือน]
+มีโปรโมชั่นพิเศษให้ไหม: [มี / ไม่มี]
+Tone: [เป็นกันเอง / ห่วงใย / Urgent]
+
+เขียน Re-engagement Sequence 3 ฉบับ:
+  ฉบับที่ 1: เช็คอิน (ไม่ขาย)
+  ฉบับที่ 2: Value + Soft Offer
+  ฉบับที่ 3: Last Chance Offer`},
+
+      // ANALYTICS
+      {s:'analytics',code:'CAMPAIGN-AUDIT',title:'📌 Audit Campaign Performance ครบ',when:'ต้องการรู้ว่า Campaign ที่ทำอยู่ Work หรือเปล่า และควรปรับอะไร',body:`[CAMPAIGN-AUDIT]
+Campaign ที่ต้องการ Audit: [Facebook Ads / TikTok / LINE / Content]
+ระยะเวลา: [X เดือน]
+Metrics ที่มี (ใส่ทุกตัว):
+  Reach / Impression / CTR / CPC / CPM
+  Conversion / Revenue / ROAS / CAC / LTV
+เป้าหมายที่ตั้งไว้: [...]
+งบที่ใช้ไป: [X บาท]
+
+ช่วย Audit ว่า:
+  1. Channel ไหน ROI ดีสุด/แย่สุด
+  2. Metric ไหนน่าเป็นห่วง
+  3. ควรปรับอะไรก่อนใน 30 วันข้างหน้า`},
+      {s:'analytics',code:'AB-TEST',title:'📌 ออกแบบ A/B Test ที่ได้ผลจริง',when:'อยากทดสอบ Copy / Creative / Landing Page แต่ไม่รู้จะ Design Test ยังไง',body:`[AB-TEST-DESIGN]
+สิ่งที่อยากทดสอบ: [Copy / Creative / CTA / Price / Landing Page]
+Platform: [Facebook / LINE / Email / เว็บ]
+Traffic ที่มีต่อสัปดาห์: [X คน/ครั้ง]
+Metric ที่จะวัดผล: [CTR / Conversion Rate / ROAS]
+
+ช่วยออกแบบ A/B Test:
+  1. Hypothesis (สมมติฐาน)
+  2. Variable ที่จะเปลี่ยน (และไม่เปลี่ยน)
+  3. Sample Size ที่ต้องการ
+  4. ระยะเวลาที่ควรรอก่อนตัดสินใจ
+  5. วิธีอ่านผลว่า Variant ไหน "ชนะ"`},
+      {s:'analytics',code:'CUSTOMER-SEGMENTATION',title:'📌 แบ่ง Segment ลูกค้าเพื่อ Personalize',when:'ต้องการส่ง Message ที่ตรงกับแต่ละกลุ่มลูกค้า ไม่ส่งแบบ Blast ทุกคนเหมือนกัน',body:`[CUSTOMER-SEGMENTATION]
+ธุรกิจ: [ประเภท + สินค้า/บริการ]
+ข้อมูลลูกค้าที่มี: [ประวัติซื้อ / พฤติกรรม / Demographics / ที่มา]
+Platform CRM ที่ใช้: [LINE OA / Email / Shopee / ไม่มี]
+เป้าหมาย: [เพิ่ม Repeat Purchase / Upsell / Reactivate]
+
+ช่วยแบ่ง Segment และแนะนำ Message สำหรับแต่ละกลุ่ม:
+  - กลุ่ม VIP (ซื้อบ่อย มูลค่าสูง)
+  - กลุ่ม Potential (ซื้อครั้งเดียว ยังไม่กลับมา)
+  - กลุ่ม At Risk (เคยซื้อบ่อย แต่หยุดแล้ว)
+  - กลุ่ม New (ซื้อครั้งแรก)`},
+
+      // CREATIVE
+      {s:'creative',code:'VISUAL-DIRECTION',title:'📌 เขียน Visual Direction Brief',when:'ต้องการ Brief ให้ Graphic Designer / Photographer ที่ชัดและได้งานตรงใจ',body:`[VISUAL-DIRECTION]
+ประเภทงาน: [Social Post / Story / Banner / Thumbnail / วิดีโอ]
+Platform: [Instagram / Facebook / TikTok / LINE]
+สินค้า/บริการ: [...]
+Mood & Tone ที่ต้องการ: [เช่น Premium, Fun, Natural, Dark]
+สี Brand หลัก: [ระบุหรือบอกว่าไม่มี]
+Reference ที่ชอบ: [ลิงก์ หรืออธิบาย Style]
+
+เขียน Visual Brief ครบ:
+  - Color Palette แนะนำ
+  - Typography Direction
+  - Layout / Composition
+  - Do's & Don'ts สำหรับ Designer
+  - ตัวอย่างคำบรรยาย/ข้อความที่ต้องใส่ในภาพ`},
+      {s:'creative',code:'VIDEO-CONCEPT',title:'📌 คิด Concept วิดีโอ Marketing',when:'ต้องการวิดีโอสำหรับ Social Media แต่ไม่รู้จะเริ่มคิด Concept ยังไง',body:`[VIDEO-CONCEPT]
+เป้าหมายวิดีโอ: [Awareness / ขาย / รีวิว / Educate / Brand]
+Platform: [TikTok / Reels / YouTube Shorts / Facebook]
+สินค้า/บริการ: [...]
+Budget สำหรับถ่ายทำ: [X บาท / ถ่ายมือถือเอง]
+Tone ที่ต้องการ: [สนุก / Emotional / Informative / Cinematic]
+Reference วิดีโอที่ชอบ: [ลิงก์หรืออธิบาย]
+
+ช่วยคิด Video Concept 3 แบบ:
+  - Concept ชื่อ + อธิบาย 1 ย่อหน้า
+  - Hook 3 วินาทีแรก
+  - Story Arc (เริ่ม/กลาง/จบ)
+  - Estimated Cost
+  - Viral Potential (High/Med/Low) + เหตุผล`},
+    ];
+
+    let activeSection='all', activeSearch='';
+
+    function filterSection(btn,s){
+      document.querySelectorAll('.sect-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      activeSection=s; renderPrompts();
+    }
+    function filterPrompts(){
+      activeSearch=document.getElementById('promptSearch').value.toLowerCase();
+      renderPrompts();
+    }
+    function renderPrompts(){
+      const grid=document.getElementById('promptGrid');
+      const filtered=prompts.filter(p=>{
+        const matchSect=activeSection==='all'||p.s===activeSection;
+        const matchQ=!activeSearch||(p.title+p.when+p.body).toLowerCase().includes(activeSearch);
+        return matchSect&&matchQ;
+      });
+      document.getElementById('promptCount').textContent=`แสดง ${filtered.length} จาก ${prompts.length} prompts`;
+      grid.innerHTML=filtered.map((p,i)=>`
+        <div class="prompt-card">
+          <div><span class="prompt-tag">${p.code}</span></div>
+          <div class="prompt-title">${p.title}</div>
+          <div class="prompt-when">📍 ใช้เมื่อ: ${p.when}</div>
+          <div class="prompt-body" id="pb_${i}">${escHtml(p.body)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="copy-btn" onclick="copyPrompt(this,${i})">📋 Copy Prompt</button>
+            <button class="copy-btn" style="background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.3);color:#a5b4fc" onclick="toggleExpand('pb_${i}',this)">🔽 ดูเต็ม</button>
+          </div>
+        </div>`).join('');
+    }
+    function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    function copyPrompt(btn,i){
+      const filtered=prompts.filter(p=>{
+        const matchSect=activeSection==='all'||p.s===activeSection;
+        const matchQ=!activeSearch||(p.title+p.when+p.body).toLowerCase().includes(activeSearch);
+        return matchSect&&matchQ;
+      });
+      navigator.clipboard.writeText(filtered[i].body).then(()=>{
+        btn.textContent='✅ Copied!'; btn.classList.add('copied');
+        setTimeout(()=>{btn.textContent='📋 Copy Prompt';btn.classList.remove('copied');},2000);
+      });
+    }
+    function toggleExpand(id,btn){
+      const el=document.getElementById(id);
+      el.classList.toggle('expanded');
+      btn.textContent=el.classList.contains('expanded')?'🔼 ย่อ':'🔽 ดูเต็ม';
+    }
+    renderPrompts();
+    </script>
+
+    <!-- CUSTOMER SUPPORT -->
+    <div class="section" id="support">
+      <h2 class="section-title" data-i18n="sup_title">Customer Support AI</h2>
+      <div class="section-sub" data-i18n="sup_sub">LINE OA Auto-Reply · 87% auto-resolved</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Chats Today</div><div class="kpi">47</div></div>
+        <div class="card"><div class="card-title">AI Resolved</div><div class="kpi text-green">41</div><div class="kpi-sub">87% auto</div></div>
+        <div class="card"><div class="card-title">Human Needed</div><div class="kpi text-yellow">6</div></div>
+        <div class="card"><div class="card-title">Avg Response</div><div class="kpi">8s</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">💬 AI Chat Demo — LINE OA</span></div>
+        <div class="chat-box" id="chatBox">
+          <div class="chat-msg"><div class="chat-from">🤖 DANK AI</div><div class="chat-bubble ai">สวัสดีค่ะ! ผม DANK AI เชื่อมกับข้อมูลจริงของร้านแล้ว 🌿<br><br>📦 200+ SKUs · 👥 22 คน · 💰 Payroll ฿418,015<br><br>ถามได้เลยค่ะ!</div></div>
+        </div>
+        <div class="quick-tags">
+          <div class="quick-tag" onclick="askAI('สินค้าขายดีสุดเดือนนี้?')">Top sellers</div>
+          <div class="quick-tag" onclick="askAI('สินค้าอะไรหมด stock?')">สินค้าหมด</div>
+          <div class="quick-tag" onclick="askAI('วันนี้ใครทำงานบ้าง?')">วันนี้ใครทำงาน</div>
+          <div class="quick-tag" onclick="askAI('Payroll เดือน May เท่าไหร่?')">Payroll</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" placeholder="ถามอะไรก็ได้..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="chat-send" onclick="sendChat()">ส่ง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCE -->
+    <div class="section" id="finance">
+      <h2 class="section-title" data-i18n="fin_title">Finance</h2>
+      <div class="section-sub" data-i18n="fin_sub">Payroll · Inventory Value · Commission</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Inventory Value</div><div class="kpi">฿546,593</div></div>
+        <div class="card"><div class="card-title">Payroll (May)</div><div class="kpi">฿418,015</div><div class="kpi-sub">2 สาขา · 22 staff</div></div>
+        <div class="card"><div class="card-title">Total Commission</div><div class="kpi">฿23,450</div><div class="kpi-sub">PTK ฿9,800 · STH ฿13,650</div></div>
+        <div class="card"><div class="card-title">Top Earner</div><div class="kpi" style="font-size:18px">Bank</div><div class="kpi-sub">฿38,000/month</div></div>
+      </div>
+      <!-- EXPENSE TRACKER -->
+      <div class="card mb-14">
+        <div class="card-header">
+          <span class="card-title">💸 ค่าใช้จ่าย</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="expMonthSel" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);font-size:11px;outline:none" onchange="renderExpenses()">
+              <option value="มิ.ย. 2026" selected>มิ.ย. 2026</option>
+              <option value="พ.ค. 2026">พ.ค. 2026</option>
+              <option value="เม.ย. 2026">เม.ย. 2026</option>
+            </select>
+            <button onclick="exportExpenseCSV()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text3);font-size:11px;cursor:pointer">⬇️ Export</button>
+          </div>
+        </div>
+
+        <!-- Summary KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">รายจ่ายทั้งหมด</div>
+            <div id="expTotalKPI" style="font-size:20px;font-weight:700;color:#f87171">฿0</div>
+          </div>
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">จำนวนรายการ</div>
+            <div id="expCountKPI" style="font-size:20px;font-weight:700;color:var(--text1)">0</div>
+          </div>
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">หมวดใช้จ่ายสูงสุด</div>
+            <div id="expTopCatKPI" style="font-size:14px;font-weight:700;color:var(--yellow)">—</div>
+          </div>
+          <div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">เฉลี่ย/รายการ</div>
+            <div id="expAvgKPI" style="font-size:20px;font-weight:700;color:var(--text1)">฿0</div>
+          </div>
+        </div>
+
+        <!-- Category filter -->
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="expCatFilter">
+          <button class="exp-cat-btn active" onclick="filterExpCat(this,'all')">🌿 ทั้งหมด</button>
+          <button class="exp-cat-btn" onclick="filterExpCat(this,'สินค้า')">📦 สินค้า</button>
+          <button class="exp-cat-btn" onclick="filterExpCat(this,'ค่าเช่า')">🏠 ค่าเช่า</button>
+          <button class="exp-cat-btn" onclick="filterExpCat(this,'ไฟฟ้า/น้ำ')">⚡ ไฟฟ้า/น้ำ</button>
+          <button class="exp-cat-btn" onclick="filterExpCat(this,'การตลาด')">📣 การตลาด</button>
+          <button class="exp-cat-btn" onclick="filterExpCat(this,'อื่นๆ')">📋 อื่นๆ</button>
+        </div>
+
+        <!-- Add expense form -->
+        <div style="display:grid;grid-template-columns:1fr 140px 130px 110px auto;gap:8px;margin-bottom:12px;align-items:center" id="expFormRow">
+          <input id="expNameInput" type="text" placeholder="รายการค่าใช้จ่าย เช่น ค่าเช่าร้าน PTK" style="background:#060e06;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text1);font-size:12px;outline:none" onkeydown="if(event.key==='Enter')addExpense()">
+          <input id="expAmtInput" type="number" placeholder="จำนวนเงิน" min="0" style="background:#060e06;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text1);font-size:12px;outline:none" onkeydown="if(event.key==='Enter')addExpense()">
+          <select id="expCatInput" style="background:#060e06;border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--text2);font-size:12px;outline:none">
+            <option value="สินค้า">📦 สินค้า</option>
+            <option value="ค่าเช่า">🏠 ค่าเช่า</option>
+            <option value="ไฟฟ้า/น้ำ">⚡ ไฟฟ้า/น้ำ</option>
+            <option value="การตลาด">📣 การตลาด</option>
+            <option value="อื่นๆ">📋 อื่นๆ</option>
+          </select>
+          <input id="expDateInput" type="date" style="background:#060e06;border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--text2);font-size:12px;outline:none">
+          <button onclick="addExpense()" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:8px;padding:9px 16px;color:var(--green);font-size:13px;cursor:pointer;white-space:nowrap">➕ เพิ่ม</button>
+        </div>
+
+        <!-- Expense table -->
+        <div class="table-wrap">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr>
+              <th style="background:#0d2a0d;color:var(--green);padding:8px 12px;text-align:left">รายการ</th>
+              <th style="background:#0d2a0d;color:var(--green);padding:8px 12px;text-align:left">หมวด</th>
+              <th style="background:#0d2a0d;color:var(--green);padding:8px 12px;text-align:left">วันที่</th>
+              <th style="background:#0d2a0d;color:var(--green);padding:8px 12px;text-align:right">จำนวนเงิน</th>
+              <th style="background:#0d2a0d;padding:8px 6px"></th>
+            </tr></thead>
+            <tbody id="expTableBody"></tbody>
+            <tfoot>
+              <tr id="expTotalRow" style="display:none">
+                <td colspan="3" style="padding:10px 12px;font-weight:700;color:var(--text1);border-top:1px solid var(--border)">รวมทั้งหมด</td>
+                <td id="expTotalCell" style="padding:10px 12px;text-align:right;font-weight:700;font-size:15px;color:#f87171;border-top:1px solid var(--border)"></td>
+                <td style="border-top:1px solid var(--border)"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div id="expEmpty" style="text-align:center;padding:24px;color:var(--text3);font-size:13px">ยังไม่มีรายการค่าใช้จ่าย — เพิ่มรายการด้านบนได้เลย</div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card"><div class="card-header"><span class="card-title">🏢 Pattanakarn Branch</span><span class="badge badge-green">17 staff</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>ชื่อ</th><th>Base</th><th>Commission</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Bank</strong></td><td>฿38,000</td><td>—</td><td class="text-green"><strong>฿38,000</strong></td></tr>
+              <tr><td>Na Lek</td><td>฿30,000</td><td>—</td><td>฿30,000</td></tr>
+              <tr><td>Yin</td><td>฿22,500</td><td>—</td><td>฿22,500</td></tr>
+              <tr><td>ALEX</td><td>฿19,000</td><td>—</td><td>฿19,000</td></tr>
+              <tr><td>AMORE</td><td>฿18,000</td><td>+฿3,300</td><td>฿21,300</td></tr>
+              <tr><td>JACK</td><td>฿18,000</td><td>+฿1,500</td><td>฿19,500</td></tr>
+              <tr><td>MON</td><td>฿18,000</td><td>—</td><td>฿18,000</td></tr>
+              <tr><td>ZAW</td><td>฿17,990</td><td>—</td><td>฿17,990</td></tr>
+              <tr><td>HONEY</td><td>฿17,000</td><td>—</td><td>฿17,000</td></tr>
+              <tr><td>Pond</td><td>฿16,100</td><td>+฿3,000</td><td>฿19,100</td></tr>
+              <tr><td>BOOM</td><td>฿16,000</td><td>—</td><td>฿16,000</td></tr>
+              <tr><td>DYLAN</td><td>฿15,600</td><td>—</td><td>฿15,600</td></tr>
+              <tr><td>SOE</td><td>฿14,500</td><td>—</td><td>฿14,500</td></tr>
+              <tr><td>Pam</td><td>฿14,300</td><td>+฿2,000</td><td>฿16,300</td></tr>
+              <tr><td>GUS</td><td>฿13,400</td><td>—</td><td>฿13,400</td></tr>
+              <tr><td>MARTIN</td><td>฿12,600</td><td>—</td><td>฿12,600</td></tr>
+              <tr><td>RENA</td><td>฿11,375</td><td>—</td><td>฿11,375</td></tr>
+              <tr><td><strong>TOTAL</strong></td><td><strong>฿312,365</strong></td><td><strong>฿9,800</strong></td><td class="text-green"><strong>฿322,165</strong></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">🏢 Sathorn Branch</span><span class="badge badge-green">5 staff</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>ชื่อ</th><th>Base</th><th>Commission</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr><td>MENG</td><td>฿19,633</td><td>+฿3,300</td><td>฿22,933</td></tr>
+              <tr><td>MEL</td><td>฿18,600</td><td>+฿3,600</td><td>฿22,200</td></tr>
+              <tr><td>PLOY</td><td>฿18,600</td><td>+฿2,850</td><td>฿21,450</td></tr>
+              <tr><td>RAIZO</td><td>฿17,567</td><td>+฿2,400</td><td>฿19,967</td></tr>
+              <tr><td>POK</td><td>฿7,800</td><td>+฿1,500</td><td>฿9,300</td></tr>
+              <tr><td><strong>TOTAL</strong></td><td><strong>฿82,200</strong></td><td class="text-green"><strong>฿13,650</strong></td><td class="text-green"><strong>฿95,850</strong></td></tr>
+            </tbody>
+          </table></div>
+          <div class="divider"></div>
+          <div class="chart-container" style="height:180px"><canvas id="payrollBar"></canvas></div>
+          <div class="insight-item yellow mt-14"><span>💡</span><span class="insight-text">Sathorn commission/head สูงกว่า Pattanakarn — พิจารณา incentive model</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF & HR -->
+    <div class="section" id="staff">
+      <h2 class="section-title" data-i18n="staff_title">Staff & HR</h2>
+      <div class="section-sub" data-i18n="staff_sub">22 พนักงาน · 2 สาขา · แก้ไขชื่อพนักงานได้โดยตรง</div>
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Total Staff</div><div class="kpi">22</div><div class="kpi-sub">PTK 17 · STH 5</div></div>
+        <div class="card"><div class="card-title">On Shift Today</div><div class="kpi text-green">7</div><div class="kpi-sub">วันพุธ</div></div>
+        <div class="card"><div class="card-title">Off Today</div><div class="kpi">3</div><div class="kpi-sub">Mon · Pam · Amore</div></div>
+        <div class="card"><div class="card-title">Total Commission</div><div class="kpi">฿23,450</div></div>
+      </div>
+      <!-- WEEKLY SCHEDULE -->
+      <div class="card mb-14" id="scheduleCard">
+        <div class="card-header">
+          <span class="card-title">📅 ตารางกะประจำสัปดาห์ — Pattanakarn</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button onclick="prevSchedWeek()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);cursor:pointer">‹</button>
+            <span id="schedWeekLabel" style="font-size:12px;color:var(--text2);min-width:160px;text-align:center"></span>
+            <button onclick="nextSchedWeek()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);cursor:pointer">›</button>
+            <button onclick="clearSchedule()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text3);font-size:11px;cursor:pointer">🗑️ ล้าง</button>
+            <button onclick="exportSchedule()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text3);font-size:11px;cursor:pointer">⬇️ Export</button>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;font-size:11px">
+          <span style="display:flex;align-items:center;gap:5px"><span style="background:rgba(234,179,8,.15);border:1px solid var(--yellow);border-radius:4px;padding:2px 8px;color:var(--yellow)">Morning</span> 09:00–18:00</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="background:rgba(249,115,22,.15);border:1px solid var(--orange);border-radius:4px;padding:2px 8px;color:var(--orange)">Evening</span> 17:00–02:00</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="background:rgba(99,102,241,.15);border:1px solid #6366f1;border-radius:4px;padding:2px 8px;color:#a5b4fc">Night</span> 01:00–10:00</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);border-radius:4px;padding:2px 8px;color:#f87171">หยุด</span> วันหยุด 1 วัน/สัปดาห์</span>
+        </div>
+
+        <!-- Schedule grid -->
+        <div style="overflow-x:auto">
+          <table id="schedTable" style="width:100%;border-collapse:collapse;min-width:700px">
+            <thead>
+              <tr id="schedHeader">
+                <th style="background:#0d2a0d;color:var(--green);padding:10px 12px;text-align:left;min-width:100px;font-size:12px">กะ / Shift</th>
+              </tr>
+            </thead>
+            <tbody id="schedBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Staff shift summary -->
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">📊 สรุปกะแต่ละคน (สัปดาห์นี้)</div>
+          <div id="schedSummary" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+      </div>
+
+      <!-- STAFF PICKER MODAL -->
+      <div id="staffPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9998;align-items:center;justify-content:center">
+        <div style="background:#0f1f0f;border:1px solid var(--border);border-radius:14px;width:360px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+            <div id="pickerTitle" style="font-size:14px;font-weight:600;color:var(--text1)"></div>
+            <div id="pickerSubtitle" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+            <input id="pickerSearch" type="text" placeholder="ค้นหาชื่อ..." oninput="renderPickerList()" style="width:100%;background:#060e06;border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text1);font-size:12px;outline:none">
+          </div>
+          <div id="pickerList" style="overflow-y:auto;flex:1;padding:8px"></div>
+          <div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+            <button onclick="closeStaffPicker()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:7px;padding:7px 16px;color:var(--text2);font-size:12px;cursor:pointer">ปิด</button>
+          </div>
+        </div>
+      </div>
+
+      <style>
+        .sched-cell{min-height:64px;padding:6px;vertical-align:top;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:.15s;position:relative}
+        .sched-cell:hover{background:rgba(74,222,128,.05)}
+        .sched-cell.day-off-locked{background:rgba(239,68,68,.06);cursor:default}
+        .sched-chip{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:600;margin:2px;cursor:default}
+        .sched-chip .rm-btn{cursor:pointer;opacity:.5;font-size:10px;line-height:1}
+        .sched-chip .rm-btn:hover{opacity:1}
+        .sched-chip.morning{background:rgba(234,179,8,.15);border:1px solid var(--yellow);color:var(--yellow)}
+        .sched-chip.evening{background:rgba(249,115,22,.15);border:1px solid var(--orange);color:var(--orange)}
+        .sched-chip.night{background:rgba(99,102,241,.15);border:1px solid #6366f1;color:#a5b4fc}
+        .sched-chip.dayoff{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:#f87171}
+        .add-cell-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:rgba(74,222,128,.1);border:1px dashed rgba(74,222,128,.3);color:var(--green);font-size:14px;cursor:pointer;margin:2px}
+        .picker-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+        .picker-item:hover{background:rgba(74,222,128,.08)}
+        .picker-item.in-cell{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.2)}
+        .picker-item.off-locked{opacity:.4;cursor:not-allowed}
+        .shift-count-bar{display:flex;gap:2px;margin-top:3px}
+        .shift-dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+        .shift-dot.off{background:#f87171}
+        .shift-dot.empty{background:rgba(255,255,255,.1)}
+      </style>
+
+      <script>
+      // ════════════════════════════════
+      // WEEKLY SCHEDULE
+      // ════════════════════════════════
+      const SHIFTS = ['morning','evening','night'];
+      const SHIFT_LABELS = {morning:'🌅 Morning 09:00–18:00', evening:'🌆 Evening 17:00–02:00', night:'🌙 Night 01:00–10:00'};
+      const DAYS_TH = ['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'];
+      const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const PTK_STAFF = ['Bank','Na Lek','Yin','ALEX','AMORE','JACK','MON','ZAW','HONEY','Pond','BOOM','DYLAN','SOE','Pam','GUS','MARTIN','RENA'];
+
+      // schedule[weekKey][dayIdx][shift] = [names...]
+      // daysOff[weekKey][name] = dayIdx (0-6) or null
+      let schedData = JSON.parse(localStorage.getItem('dank_schedule') || '{}');
+      let schedWeekOffset = 0; // 0 = this week
+      let pickerCtx = null; // {weekKey, dayIdx, shift}
+
+      function getWeekKey(offset=0) {
+        const now = new Date();
+        const mon = new Date(now);
+        mon.setDate(now.getDate() - ((now.getDay()+6)%7) + offset*7);
+        return mon.toISOString().slice(0,10);
+      }
+
+      function getWeekDates(offset=0) {
+        const now = new Date();
+        const mon = new Date(now);
+        mon.setDate(now.getDate() - ((now.getDay()+6)%7) + offset*7);
+        return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+      }
+
+      function prevSchedWeek(){ schedWeekOffset--; renderSchedule(); }
+      function nextSchedWeek(){ schedWeekOffset++; renderSchedule(); }
+
+      function initWeek(wk) {
+        if (!schedData[wk]) {
+          schedData[wk] = { days: Array.from({length:7},()=>({morning:[],evening:[],night:[]})), daysOff:{} };
+        }
+      }
+
+      function saveSchedule() { localStorage.setItem('dank_schedule', JSON.stringify(schedData)); }
+
+      function renderSchedule() {
+        const wk = getWeekKey(schedWeekOffset);
+        initWeek(wk);
+        const dates = getWeekDates(schedWeekOffset);
+        const today = new Date().toDateString();
+
+        // Week label
+        const d0 = dates[0], d6 = dates[6];
+        document.getElementById('schedWeekLabel').textContent =
+          `${d0.getDate()} ${d0.toLocaleString('th-TH',{month:'short'})} – ${d6.getDate()} ${d6.toLocaleString('th-TH',{month:'short', year:'2-digit'})}`;
+
+        // Header
+        const header = document.getElementById('schedHeader');
+        header.innerHTML = `<th style="background:#0d2a0d;color:var(--green);padding:10px 12px;text-align:left;min-width:110px;font-size:12px">กะ / Shift</th>` +
+          dates.map((d,i) => {
+            const isToday = d.toDateString()===today;
+            return `<th style="background:${isToday?'rgba(74,222,128,.1)':'#0d2a0d'};color:${isToday?'var(--green)':'var(--text2)'};padding:10px 8px;text-align:center;font-size:11px;border-left:1px solid rgba(255,255,255,.06)">
+              <div style="font-weight:700">${DAYS_TH[i]}</div>
+              <div style="font-size:10px;opacity:.7">${d.getDate()}/${d.getMonth()+1}</div>
+              ${isToday?'<div style="font-size:9px;color:var(--green)">วันนี้</div>':''}
+            </th>`;
+          }).join('');
+
+        // Body rows
+        const body = document.getElementById('schedBody');
+        body.innerHTML = SHIFTS.map(shift => {
+          const shiftClass = shift;
+          const label = {morning:'🌅 Morning',evening:'🌆 Evening',night:'🌙 Night'}[shift];
+          const subLabel = {morning:'09:00–18:00',evening:'17:00–02:00',night:'01:00–10:00'}[shift];
+          return `<tr>
+            <td style="background:#060e06;padding:10px 12px;vertical-align:middle;border:1px solid rgba(255,255,255,.06)">
+              <div class="sched-chip ${shiftClass}" style="cursor:default;margin:0">${label}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">${subLabel}</div>
+            </td>` +
+            dates.map((d,dayIdx) => {
+              const data = schedData[wk].days[dayIdx];
+              const daysOff = schedData[wk].daysOff || {};
+              const names = data[shift] || [];
+              // Check if anyone has day off this day
+              const offPeople = Object.entries(daysOff).filter(([n,di])=>di===dayIdx).map(([n])=>n);
+              const chips = names.map(name =>
+                `<span class="sched-chip ${shiftClass}">${name}<span class="rm-btn" onclick="removeFromCell('${wk}',${dayIdx},'${shift}','${name}',event)">✕</span></span>`
+              ).join('') +
+              offPeople.map(name =>
+                `<span class="sched-chip dayoff">🔴 ${name} หยุด<span class="rm-btn" onclick="removeDayOff('${wk}','${name}',event)">✕</span></span>`
+              ).join('');
+              return `<td class="sched-cell" onclick="openStaffPicker('${wk}',${dayIdx},'${shift}')">
+                ${chips}
+                <span class="add-cell-btn" title="เพิ่มพนักงาน">+</span>
+              </td>`;
+            }).join('') + `</tr>`;
+        }).join('');
+
+        renderSchedSummary(wk);
+      }
+
+      function renderSchedSummary(wk) {
+        initWeek(wk);
+        const daysOff = schedData[wk].daysOff || {};
+        const days = schedData[wk].days;
+        const summary = document.getElementById('schedSummary');
+
+        summary.innerHTML = PTK_STAFF.map(name => {
+          let count = 0;
+          days.forEach(d => SHIFTS.forEach(s => { if(d[s].includes(name)) count++; }));
+          const offDay = Object.entries(daysOff).find(([n])=>n===name)?.[1];
+          const offDayLabel = offDay !== undefined ? DAYS_TH[offDay] : null;
+          const remaining = 6 - count; // 6 working days max
+          const dots = Array.from({length:7},(_,i) => {
+            if(offDay===i) return `<span class="shift-dot off" title="หยุด ${DAYS_TH[i]}"></span>`;
+            const worked = days[i] && SHIFTS.some(s=>days[i][s].includes(name));
+            return `<span class="shift-dot ${worked?'':'empty'}" title="${DAYS_TH[i]}"></span>`;
+          }).join('');
+          return `<div style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:8px 10px;min-width:130px">
+            <div style="font-size:12px;font-weight:600;color:var(--text1)">${name}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">${count} กะ · เหลือ <span style="color:${remaining<0?'#f87171':'var(--green)'}">${Math.max(0,remaining)}</span></div>
+            ${offDayLabel?`<div style="font-size:10px;color:#f87171">🔴 หยุด ${offDayLabel}</div>`:'<div style="font-size:10px;color:var(--text3)">ยังไม่ได้ตั้งวันหยุด</div>'}
+            <div class="shift-count-bar" style="margin-top:4px">${dots}</div>
+          </div>`;
+        }).join('');
+      }
+
+      // ── PICKER ────────────────────────
+      function openStaffPicker(wk, dayIdx, shift) {
+        pickerCtx = {wk, dayIdx, shift};
+        const shiftLabel = {morning:'🌅 Morning 09:00–18:00',evening:'🌆 Evening 17:00–02:00',night:'🌙 Night 01:00–10:00'}[shift];
+        document.getElementById('pickerTitle').textContent = `${DAYS_TH[dayIdx]} — ${shiftLabel}`;
+        document.getElementById('pickerSubtitle').textContent = 'คลิกชื่อเพื่อเพิ่ม/ลบ · 🔴 = วันหยุด (ล็อค)';
+        document.getElementById('pickerSearch').value = '';
+        document.getElementById('staffPickerModal').style.display = 'flex';
+        renderPickerList();
+      }
+
+      function closeStaffPicker() {
+        document.getElementById('staffPickerModal').style.display = 'none';
+        pickerCtx = null;
+        saveSchedule();
+        renderSchedule();
+      }
+
+      function renderPickerList() {
+        if (!pickerCtx) return;
+        const {wk, dayIdx, shift} = pickerCtx;
+        initWeek(wk);
+        const q = document.getElementById('pickerSearch').value.toLowerCase();
+        const daysOff = schedData[wk].daysOff || {};
+        const days = schedData[wk].days;
+        const inCell = days[dayIdx][shift] || [];
+
+        const list = document.getElementById('pickerList');
+        list.innerHTML = PTK_STAFF.filter(n => n.toLowerCase().includes(q)).map(name => {
+          // Count shifts this week
+          let count = 0;
+          days.forEach(d => SHIFTS.forEach(s => { if(d[s].includes(name)) count++; }));
+          const offDay = Object.entries(daysOff).find(([n])=>n===name)?.[1];
+          const isOff = offDay === dayIdx;
+          const isInCell = inCell.includes(name);
+          const remaining = 6 - count;
+          const alreadyMaxed = remaining <= 0 && !isInCell;
+
+          const dots = Array.from({length:7},(_,i) => {
+            if(offDay===i) return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f87171;margin:0 1px" title="หยุด ${DAYS_TH[i]}"></span>`;
+            const worked = days[i] && SHIFTS.some(s=>days[i][s].includes(name));
+            return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${worked?'var(--green)':'rgba(255,255,255,.1)'};margin:0 1px" title="${DAYS_TH[i]}"></span>`;
+          }).join('');
+
+          if (isOff) return `<div class="picker-item off-locked">
+            <div><div style="font-size:13px;font-weight:600;color:var(--text3)">${name}</div>
+            <div style="font-size:10px;color:#f87171">🔴 วันหยุด${offDay!==undefined?' ('+DAYS_TH[offDay]+')':''} — ล็อค</div></div>
+            <div style="font-size:10px;color:var(--text3)">${count}/6 กะ</div>
+          </div>`;
+
+          return `<div class="picker-item ${isInCell?'in-cell':''}" onclick="${isOff||alreadyMaxed?'':'toggleStaffInCell(\''+name+'\')'}">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:13px;font-weight:600;color:${isInCell?'var(--green)':'var(--text1)'}">${name}</span>
+                ${isInCell?'<span style="font-size:10px;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);border-radius:4px;padding:1px 6px;color:var(--green)">✓ อยู่ในกะนี้</span>':''}
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:3px">${dots}
+                <span style="font-size:10px;color:${remaining<0?'#f87171':remaining===0?'var(--yellow)':'var(--text3)'}"> ${count}/6 กะ · เหลือ ${Math.max(0,remaining)}</span>
+              </div>
+              ${!offDay&&offDay!==0?`<div style="font-size:10px;color:var(--text3);margin-top:2px">ยังไม่ได้ตั้งวันหยุด · <span style="color:var(--green);cursor:pointer" onclick="setDayOff('${name}',event)">ตั้งวันหยุดวันนี้</span></div>`:''}
+              ${alreadyMaxed?'<div style="font-size:10px;color:#f87171">ครบ 6 กะแล้ว</div>':''}
+            </div>
+            <div style="font-size:18px">${isInCell?'✅':alreadyMaxed?'⛔':'➕'}</div>
+          </div>`;
+        }).join('');
+      }
+
+      function toggleStaffInCell(name) {
+        const {wk, dayIdx, shift} = pickerCtx;
+        initWeek(wk);
+        const arr = schedData[wk].days[dayIdx][shift];
+        const idx = arr.indexOf(name);
+        if (idx >= 0) arr.splice(idx, 1);
+        else arr.push(name);
+        renderPickerList();
+      }
+
+      function setDayOff(name, e) {
+        e.stopPropagation();
+        const {wk, dayIdx} = pickerCtx;
+        initWeek(wk);
+        if (!schedData[wk].daysOff) schedData[wk].daysOff = {};
+        // Remove from existing off day
+        const existing = schedData[wk].daysOff[name];
+        if (existing !== undefined) { delete schedData[wk].daysOff[name]; }
+        // Set new day off and remove from all shifts that day
+        schedData[wk].daysOff[name] = dayIdx;
+        SHIFTS.forEach(s => {
+          const arr = schedData[wk].days[dayIdx][s];
+          const i = arr.indexOf(name);
+          if(i>=0) arr.splice(i,1);
+        });
+        renderPickerList();
+      }
+
+      function removeFromCell(wk, dayIdx, shift, name, e) {
+        e.stopPropagation();
+        initWeek(wk);
+        const arr = schedData[wk].days[dayIdx][shift];
+        const i = arr.indexOf(name);
+        if(i>=0) arr.splice(i,1);
+        saveSchedule(); renderSchedule();
+      }
+
+      function removeDayOff(wk, name, e) {
+        e.stopPropagation();
+        initWeek(wk);
+        if(schedData[wk].daysOff) delete schedData[wk].daysOff[name];
+        saveSchedule(); renderSchedule();
+      }
+
+      function clearSchedule() {
+        if(!confirm('ล้างตารางสัปดาห์นี้ทั้งหมด?')) return;
+        const wk = getWeekKey(schedWeekOffset);
+        delete schedData[wk]; saveSchedule(); renderSchedule();
+      }
+
+      function exportSchedule() {
+        const wk = getWeekKey(schedWeekOffset); initWeek(wk);
+        const rows = [['กะ',...DAYS_TH]];
+        SHIFTS.forEach(shift => {
+          const row = [SHIFT_LABELS[shift]];
+          schedData[wk].days.forEach(d => row.push((d[shift]||[]).join(', ')));
+          rows.push(row);
+        });
+        rows.push(['วันหยุด',...Array.from({length:7},(_,i)=>{
+          const offs = Object.entries(schedData[wk].daysOff||{}).filter(([,di])=>di===i).map(([n])=>n);
+          return offs.join(', ');
+        })]);
+        const csv = '﻿'+rows.map(r=>r.join(',')).join('\n');
+        const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+        a.download=`DANK_Schedule_${wk}.csv`; a.click();
+      }
+
+      // Close picker on backdrop
+      document.getElementById('staffPickerModal').addEventListener('click', e=>{
+        if(e.target===e.currentTarget) closeStaffPicker();
+      });
+
+      // Initial render
+      renderSchedule();
+      </script>
+
+      <div class="card mb-14">
+        <div class="card-header">
+          <span class="card-title">👥 ทีมงานทั้งหมด — แก้ไขได้โดยตรง</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;font-size:11px;align-items:center;color:var(--text3);">
+              <span><span style="width:8px;height:8px;border-radius:50%;background:#6366f1;display:inline-block;margin-right:3px;"></span>Night</span>
+              <span><span style="width:8px;height:8px;border-radius:50%;background:var(--yellow);display:inline-block;margin-right:3px;"></span>Morning</span>
+              <span><span style="width:8px;height:8px;border-radius:50%;background:var(--orange);display:inline-block;margin-right:3px;"></span>Evening</span>
+            </div>
+            <button class="btn btn-outline" onclick="addStaffRow()" style="font-size:11px;">➕ Add Staff</button>
+            <button class="btn btn-green" onclick="saveAllStaff()" data-i18n="staff_save">💾 Save All</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="staff-table">
+            <thead><tr><th>#</th><th>ชื่อ / Name</th><th>ตำแหน่ง / Role</th><th>เงินเดือน / Salary (฿)</th><th>Commission (฿)</th><th>Shifts</th><th></th></tr></thead>
+            <tbody id="staffTableBody"></tbody>
+          </table>
+        </div>
+        <div id="staffSummary" style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);padding:0 4px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📅 Shift Rotation (สัปดาห์นี้)</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>วัน</th><th>🌙 Night</th><th>☀️ Day</th><th>🌆 Evening</th><th>🏠 Off</th></tr></thead>
+          <tbody>
+            <tr><td>จันทร์</td><td>Dylan</td><td>Alex · Mon</td><td>Amore · Steve</td><td>Pam · Gus · Rena</td></tr>
+            <tr><td>อังคาร</td><td>Gus</td><td>Alex · Pam</td><td>Mon · Rena</td><td>Steve · Dylan · Amore</td></tr>
+            <tr style="background:rgba(34,197,94,.05)"><td><strong>พุธ ← วันนี้</strong></td><td>Rena</td><td>Steve · Gus</td><td>Alex · Dylan</td><td>Mon · Pam · Amore</td></tr>
+            <tr><td>พฤหัส</td><td>Pam</td><td>Mon · Amore</td><td>Steve · Gus</td><td>Alex · Dylan · Rena</td></tr>
+            <tr><td>ศุกร์</td><td>Dylan</td><td>Alex · Pam</td><td>Amore · Rena</td><td>Mon · Steve · Gus</td></tr>
+            <tr><td>เสาร์</td><td>Gus</td><td>Mon · Steve</td><td>Alex · Dylan</td><td>Pam · Amore · Rena</td></tr>
+            <tr><td>อาทิตย์</td><td>Rena</td><td>Alex · Amore</td><td>Pam · Steve</td><td>Mon · Dylan · Gus</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div class="section" id="ai">
+      <h2 class="section-title" data-i18n="ai_title">Ask DANK AI</h2>
+      <div class="section-sub" data-i18n="ai_sub">เลือก Role · คุยกับ AI ที่เชี่ยวชาญตรงงาน</div>
+
+      <!-- ROLE SELECTOR -->
+      <div class="card mb-14">
+        <div class="card-header"><span class="card-title">🎭 เลือก AI Role</span><span id="activeRoleLabel" class="badge badge-green">🌿 DANK Assistant</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:14px">
+          <button class="ai-role-card active" onclick="switchAIRole(this,'dank')" id="role_dank">
+            <div style="font-size:22px">🌿</div>
+            <div class="ai-role-name">DANK Assistant</div>
+            <div class="ai-role-desc">ข้อมูลร้าน · สินค้า · พนักงาน</div>
+          </button>
+          <button class="ai-role-card" onclick="switchAIRole(this,'strategist')" id="role_strategist">
+            <div style="font-size:22px">🎯</div>
+            <div class="ai-role-name">CMO / Strategist</div>
+            <div class="ai-role-desc">วางแผน · Positioning · OKR</div>
+          </button>
+          <button class="ai-role-card" onclick="switchAIRole(this,'copywriter')" id="role_copywriter">
+            <div style="font-size:22px">✍️</div>
+            <div class="ai-role-name">Copywriter</div>
+            <div class="ai-role-desc">Caption · Ad Copy · Script</div>
+          </button>
+          <button class="ai-role-card" onclick="switchAIRole(this,'paidads')" id="role_paidads">
+            <div style="font-size:22px">💰</div>
+            <div class="ai-role-name">Paid Ads</div>
+            <div class="ai-role-desc">Facebook · TikTok · ROAS</div>
+          </button>
+          <button class="ai-role-card" onclick="switchAIRole(this,'social')" id="role_social">
+            <div style="font-size:22px">📱</div>
+            <div class="ai-role-name">Social Media</div>
+            <div class="ai-role-desc">Calendar · Platform · KOC</div>
+          </button>
+          <button class="ai-role-card" onclick="switchAIRole(this,'analyst')" id="role_analyst">
+            <div style="font-size:22px">📊</div>
+            <div class="ai-role-name">Analyst</div>
+            <div class="ai-role-desc">วิเคราะห์ · A/B Test · Segment</div>
+          </button>
+        </div>
+        <!-- System Prompt Preview -->
+        <div style="background:#060e06;border:1px solid rgba(74,222,128,.2);border-radius:8px;padding:12px">
+          <div style="font-size:10px;color:var(--green);margin-bottom:6px;letter-spacing:.05em">SYSTEM PROMPT ที่ใช้อยู่</div>
+          <div id="sysPromptPreview" style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;font-family:monospace;max-height:100px;overflow:hidden"></div>
+        </div>
+      </div>
+
+      <!-- API KEY SETUP -->
+      <div class="card mb-14" id="apiSetupCard">
+        <div class="card-header">
+          <span class="card-title">🔑 เชื่อม AI</span>
+          <span id="apiStatusBadge" class="badge" style="background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)">ยังไม่ได้เชื่อม</span>
+        </div>
+        <!-- Provider toggle -->
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <button class="provider-btn active" id="provBtn_openai" onclick="setProvider('openai')">
+            <span style="font-size:16px">🤖</span> OpenAI
+          </button>
+          <button class="provider-btn" id="provBtn_claude" onclick="setProvider('claude')">
+            <span style="font-size:16px">🧠</span> Claude
+          </button>
+        </div>
+        <!-- Model selector -->
+        <div style="margin-bottom:10px">
+          <select id="modelSelect" style="background:#060e06;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text2);font-size:12px;width:100%;outline:none">
+            <option value="gpt-4o-mini">GPT-4o mini (เร็ว ประหยัด)</option>
+            <option value="gpt-4o">GPT-4o (ฉลาดกว่า)</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (ถูกที่สุด)</option>
+          </select>
+        </div>
+        <!-- Key input -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="apiKeyInput" type="password" placeholder="sk-..." style="flex:1;min-width:200px;background:#060e06;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text1);font-size:12px;font-family:monospace;outline:none">
+          <button onclick="saveAPIKey()" style="background:rgba(74,222,128,.15);border:1px solid var(--green);border-radius:8px;padding:9px 16px;color:var(--green);font-size:12px;cursor:pointer;white-space:nowrap">✅ บันทึก</button>
+          <button onclick="testAPIKey()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:9px 16px;color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap">🧪 ทดสอบ</button>
+          <button onclick="clearAPIKey()" style="background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text3);font-size:12px;cursor:pointer" title="ล้าง Key">🗑️</button>
+        </div>
+        <div id="apiHint" style="margin-top:8px;font-size:11px;color:var(--text3);line-height:1.6">
+          ใส่ OpenAI API Key · <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--green)">platform.openai.com/api-keys</a>
+        </div>
+      </div>
+
+      <style>
+        .provider-btn{background:#0d1a0d;border:1px solid var(--border);border-radius:8px;padding:7px 16px;color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.2s}
+        .provider-btn:hover,.provider-btn.active{background:rgba(74,222,128,.1);border-color:var(--green);color:var(--green)}
+      </style>
+
+      <div class="grid grid-4 mb-14">
+        <div class="card"><div class="card-title">Knowledge Base</div><div class="kpi" style="font-size:18px">200+ SKUs</div></div>
+        <div class="card"><div class="card-title">Staff Data</div><div class="kpi">22 คน</div></div>
+        <div class="card"><div class="card-title">Payroll Data</div><div class="kpi" style="font-size:18px">May 2026</div></div>
+        <div class="card"><div class="card-title">Active Role</div><div class="kpi" id="activeRoleKPI" style="font-size:14px">🌿 DANK</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="chatTitle">💬 DANK Assistant</span>
+          <button onclick="clearAIChat()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text3);font-size:11px;cursor:pointer">🗑️ ล้างแชท</button>
+        </div>
+        <div class="chat-box" id="aiChatBox" style="height:360px"></div>
+        <div class="quick-tags" id="aiQuickTags"></div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="aiInput" placeholder="ถามอะไรก็ได้..." onkeydown="if(event.key==='Enter')sendAI2()">
+          <button class="chat-send" onclick="sendAI2()">ส่ง</button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .ai-role-card{background:#0d1a0d;border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;text-align:left;transition:.2s;width:100%}
+      .ai-role-card:hover{border-color:rgba(74,222,128,.4);background:#0d2a0d}
+      .ai-role-card.active{border-color:var(--green);background:rgba(74,222,128,.08)}
+      .ai-role-name{font-size:13px;font-weight:600;color:var(--text1);margin:6px 0 2px}
+      .ai-role-desc{font-size:11px;color:var(--text3)}
+    </style>
+
+    <script>
+    // ──────────────────────────────────────
+    // AI ROLE SYSTEM
+    // ──────────────────────────────────────
+    const aiRoles = {
+      dank: {
+        label: '🌿 DANK Assistant',
+        icon: '🌿',
+        title: '💬 DANK Assistant — ข้อมูลร้าน',
+        sysPrompt: `คุณคือ DANK AI ผู้ช่วยของ DANK Cannabis Club
+ร้านมี 2 สาขา: Pattanakarn (PTK) และ Sathorn (STH)
+พนักงาน 22 คน | Payroll May 2026: ฿418,015
+สินค้าขายดี: Zooties 🍇, Gelato X, MellowZ, ztupid, Grape Stank
+สินค้าหมด: The Toad, Bangkok Lemon, Snow Banana
+ตอบเป็นภาษาไทย กระชับ ตรงประเด็น`,
+        quickTags: [
+          {label:'Top sellers', q:'สินค้าขายดีสุดเดือนนี้'},
+          {label:'สินค้าหมด', q:'สินค้าอะไรหมด stock บ้าง'},
+          {label:'ใครทำงานวันนี้', q:'วันนี้ใครทำงานบ้าง'},
+          {label:'Payroll May', q:'สรุป payroll เดือน May'},
+          {label:'Reorder', q:'ควร reorder สินค้าอะไรบ้าง'},
+          {label:'Caption Zooties', q:'เขียน caption IG สำหรับ Zooties'},
+        ],
+        welcome: 'สวัสดีครับ! ผม DANK AI 🌿<br><br>📦 200+ SKUs · 👥 22 คน (PTK 17 + STH 5)<br>💰 Payroll May: ฿418,015<br><br>ถามเรื่องสต็อก พนักงาน หรือข้อมูลร้านได้เลย!'
+      },
+      strategist: {
+        label: '🎯 CMO / Strategist',
+        icon: '🎯',
+        title: '💬 CMO / Strategist AI',
+        sysPrompt: `คุณคือ CMO ของ DANK Cannabis Club
+เชี่ยวชาญ: Brand Strategy · Positioning · Go-To-Market · OKR · Budget Allocation
+บริบทธุรกิจ: Cannabis Club พรีเมียม 2 สาขา (PTK + STH) กรุงเทพฯ
+ก่อนให้คำแนะนำ ถามข้อมูลที่จำเป็นก่อนเสมอ
+ตอบเป็นภาษาไทย มืออาชีพ มีเหตุผลวัดผลได้`,
+        quickTags: [
+          {label:'วาง Marketing Plan', q:'ช่วยวาง Marketing Plan 90 วันสำหรับ DANK'},
+          {label:'หา UVP', q:'DANK ควร Positioning ตัวเองว่าอะไร'},
+          {label:'แบ่ง Budget', q:'ถ้ามีงบ Marketing 50,000 บาท/เดือน ควรแบ่งยังไง'},
+          {label:'วิเคราะห์คู่แข่ง', q:'ช่วยวิเคราะห์คู่แข่งของ DANK Cannabis Club'},
+          {label:'Launch สาขาใหม่', q:'ถ้าจะเปิดสาขาที่ 3 ควรวาง Go-To-Market Plan ยังไง'},
+        ],
+        welcome: 'สวัสดีครับ ผมคือ CMO AI ของ DANK 🎯<br><br>ผมช่วยวางกลยุทธ์ธุรกิจ ตั้งแต่ Positioning, OKR, Budget Allocation ไปจนถึง Go-To-Market<br><br>บอกได้เลยว่า <strong>ตอนนี้ต้องการแก้ปัญหาอะไร</strong> หรือเป้าหมายหลักของเดือนนี้คืออะไร?'
+      },
+      copywriter: {
+        label: '✍️ Copywriter',
+        icon: '✍️',
+        title: '💬 Copywriter AI',
+        sysPrompt: `คุณคือ Copywriter ของ DANK Cannabis Club
+เชี่ยวชาญ: Instagram Caption · TikTok Script · LINE Broadcast · Facebook Ad Copy · Live Commerce Script
+Tone ของ DANK: Premium Cannabis Lifestyle · เป็นกันเอง · ไม่ทางการมาก · สไตล์ไทยแท้
+สินค้าหลัก: Zooties, Gelato X, MellowZ, ztupid, Grape Stank, Livity420 THC Wine
+ก่อนเขียน ถาม Tone และ Platform ที่ต้องการ
+ตอบเป็นภาษาไทย พร้อมใช้งานทันที`,
+        quickTags: [
+          {label:'Caption IG Zooties', q:'เขียน Instagram caption สำหรับ Zooties (THC 28% Hybrid)'},
+          {label:'LINE Broadcast', q:'เขียน LINE Broadcast แจ้ง Zooties เข้าใหม่'},
+          {label:'TikTok Script', q:'เขียน TikTok Script 30 วินาที รีวิว Gelato X'},
+          {label:'FB Ad Copy', q:'เขียน Facebook Ad 3 versions สำหรับ Livity420 THC Wine'},
+          {label:'Caption ร้านเปิดใหม่', q:'เขียน caption IG ประกาศเปิดสาขา Sathorn'},
+          {label:'Hashtag Pack', q:'แนะนำ Hashtag สำหรับ DANK Cannabis Club'},
+        ],
+        welcome: 'สวัสดีครับ ผมคือ Copywriter AI ✍️<br><br>ผมเขียนได้ทุก Format — Instagram, TikTok, LINE, Facebook Ad, Live Script<br><br>บอกมาเลยว่าจะเขียน <strong>อะไร สำหรับ Platform ไหน</strong> หรือกด Quick Tag ด้านล่างได้เลย!'
+      },
+      paidads: {
+        label: '💰 Paid Ads',
+        icon: '💰',
+        title: '💬 Paid Ads Specialist AI',
+        sysPrompt: `คุณคือ Paid Ads Specialist ของ DANK Cannabis Club
+เชี่ยวชาญ: Facebook Ads · TikTok Ads · LINE Ads · ROAS Optimization · Budget Planning
+บริบท: Cannabis Club ไม่สามารถยิง Ads ตรงๆ ได้บน Meta ต้องใช้ Angle ที่ถูก Policy
+ให้คำแนะนำที่ปฏิบัติได้จริง พร้อม KPI และ Timeline ชัดเจน
+ตอบเป็นภาษาไทย`,
+        quickTags: [
+          {label:'Strategy Ads Cannabis', q:'Cannabis Club ควรยิง Ads ยังไงโดยไม่โดนแบน'},
+          {label:'วาง FB Campaign', q:'ช่วยวาง Facebook Ads Campaign สำหรับ DANK'},
+          {label:'คำนวณ ROAS', q:'ถ้าขาย Zooties ฿220/g ต้นทุน ฿80 ต้องการ ROAS เท่าไหร่'},
+          {label:'LINE Ads', q:'ช่วยวาง LINE Ads เพื่อเพิ่ม LINE OA Follower ของ DANK'},
+          {label:'วินิจฉัย Ads', q:'Ads ยิงไปแล้ว CTR 0.5% CPC ฿12 ควรปรับอะไร'},
+        ],
+        welcome: 'สวัสดีครับ ผมคือ Paid Ads AI 💰<br><br>ผมช่วยวาง Campaign, คำนวณ ROAS, วินิจฉัย Ads ที่ไม่ Work<br><br>⚠️ Cannabis Ads มีข้อจำกัดพิเศษ ผมจะช่วยหา Angle ที่ผ่าน Policy ได้<br><br>เริ่มจากอะไรก่อนดี?'
+      },
+      social: {
+        label: '📱 Social Media',
+        icon: '📱',
+        title: '💬 Social Media Manager AI',
+        sysPrompt: `คุณคือ Social Media Manager ของ DANK Cannabis Club
+เชี่ยวชาญ: Content Calendar · Platform Strategy · KOC/Influencer · LINE OA Plan · Instagram · TikTok
+Platform หลักของ DANK: Instagram, LINE OA, TikTok
+Tone: Premium Cannabis Lifestyle — สนุก เป็นกันเอง มีสไตล์
+ช่วยวาง Plan ที่ทำได้จริงสำหรับทีมเล็ก
+ตอบเป็นภาษาไทย`,
+        quickTags: [
+          {label:'Content Calendar', q:'ช่วยทำ Content Calendar 1 เดือนสำหรับ DANK Instagram'},
+          {label:'Platform Strategy', q:'DANK ควร Focus Platform ไหนก่อน ระหว่าง IG, TikTok, LINE'},
+          {label:'LINE OA Plan', q:'ช่วยวาง LINE OA Content Plan ส่ง Broadcast กี่ครั้ง/เดือน'},
+          {label:'หา KOC', q:'ควรหา KOC แบบไหนมา Promote DANK Cannabis Club'},
+          {label:'Strategy สาขา STH', q:'ช่วยวาง Social Strategy สำหรับสาขา Sathorn ที่เพิ่งเปิด'},
+        ],
+        welcome: 'สวัสดีครับ ผมคือ Social Media AI 📱<br><br>ผมช่วยวาง Content Calendar, เลือก Platform, หา KOC และวาง LINE OA Plan<br><br>DANK ใช้ Platform ไหนอยู่บ้าง และตอนนี้ Post กี่ครั้ง/สัปดาห์?'
+      },
+      analyst: {
+        label: '📊 Analyst',
+        icon: '📊',
+        title: '💬 Marketing Analyst AI',
+        sysPrompt: `คุณคือ Marketing Analyst ของ DANK Cannabis Club
+เชี่ยวชาญ: Campaign Audit · Sales Analysis · A/B Test Design · Customer Segmentation · Attribution
+ข้อมูลที่มี: ยอดขาย May 2026, สต็อก, Payroll, Sales per Branch
+วิเคราะห์อย่างมีเหตุผล พร้อม Actionable Recommendation
+ตอบเป็นภาษาไทย`,
+        quickTags: [
+          {label:'วิเคราะห์ยอดขาย', q:'ช่วยวิเคราะห์ยอดขาย DANK เดือน May และแนะนำสิ่งที่ควรปรับ'},
+          {label:'เปรียบ 2 สาขา', q:'เปรียบยอดขาย Pattanakarn vs Sathorn ควรทำอะไรต่าง'},
+          {label:'Segment ลูกค้า', q:'ช่วยแบ่ง Segment ลูกค้าของ DANK เพื่อส่ง LINE ให้ตรง'},
+          {label:'ออกแบบ A/B Test', q:'อยากทดสอบ Caption 2 แบบบน IG ควรออกแบบ Test ยังไง'},
+          {label:'สินค้าควร Push', q:'จาก sales data เดือน May สินค้าไหนควร Push ต่อ ไหนควรลด'},
+        ],
+        welcome: 'สวัสดีครับ ผมคือ Analyst AI 📊<br><br>ผมช่วยวิเคราะห์ยอดขาย, แบ่ง Segment ลูกค้า, ออกแบบ A/B Test และ Audit Campaign<br><br>มีข้อมูลจาก May 2026 พร้อมใช้งาน — อยากวิเคราะห์อะไรก่อน?'
+      }
+    };
+
+    let currentAIRole = 'dank';
+    let aiHistory = [];
+
+    const aiResponses2 = {
+      dank: {
+        'ขายดี|top seller|bestsell': '📊 <strong>Top Sellers เดือน May 2026:</strong><br><br>1. 🍇 Zooties — ฿59,906<br>2. ✨ Gelato X — ฿36,020<br>3. 💚 MellowZ — ฿32,080<br>4. ⚡ ztupid — ฿31,560<br>5. 🍇 Grape Stank — ฿27,940<br><br>Zooties ครองอันดับ 1 ห่างอันดับ 2 เกือบ ฿24,000',
+        'หมด|out of stock|zero': '⚠️ <strong>สินค้าหมด Stock:</strong><br><br>🔴 The Toad — 0g<br>🔴 Bangkok Lemon — 0g<br>🔴 Snow Banana — 0g<br>🟡 Halle Berry — 0.15g (Critical!)<br>🟡 Biscotti — 0.5g<br><br>ต้อง Reorder ด่วน 3 รายการแรก',
+        'ทำงาน|shift|พนักงาน': '👥 <strong>พนักงานวันนี้ (24 มิ.ย. 2026):</strong><br><br>🏢 PTK Morning: Bank, Na Lek, ALEX, MON, Pond<br>🏢 PTK Evening: AMORE, JACK, HONEY, BOOM, DYLAN<br>🏢 STH: MENG, MEL, PLOY, RAIZO',
+        'payroll|เงินเดือน': '💰 <strong>Payroll May 2026:</strong><br><br>PTK (17 คน): ฿322,165 (Base ฿312,365 + Commission ฿9,800)<br>STH (5 คน): ฿95,850 (Base ฿82,200 + Commission ฿13,650)<br><br><strong>รวมทั้งหมด: ฿418,015</strong><br>Top Earner: Bank ฿38,000',
+        'reorder|สั่งซื้อ': '📦 <strong>Reorder Priority List:</strong><br><br>🔴 ด่วนมาก: The Toad, Bangkok Lemon, Snow Banana (0g)<br>🟡 เร่งด่วน: Halle Berry (0.15g), Biscotti (0.5g)<br>🟠 เฝ้าระวัง: Blueberry Haze, Banana Runtz (< 5g)<br><br>แนะนำ Order ใน 24 ชั่วโมง',
+        'caption|ig|instagram': '📸 <strong>Instagram Caption — Zooties:</strong><br><br>🍇✨ Zooties is TAKING OVER 🏆<br><br>28% THC | Hybrid | Fruity & Dense<br>ยอดขาย #1 ไม่หยุด ฿220/g<br><br>📍 DANK Cannabis Club | PTK & STH<br>#DANKCannabisClub #Zooties #BangkokCannabis',
+        'default': '🤖 ขอโทษนะครับ ยังไม่มีข้อมูลส่วนนั้น<br>ลองถามเรื่อง <strong>สต็อก, พนักงาน, ยอดขาย หรือ Payroll</strong> ได้เลยครับ!'
+      },
+      strategist: {
+        'marketing plan|90 วัน|แผน': '🎯 <strong>Marketing Plan 90 วัน — DANK Cannabis Club</strong><br><br><strong>เดือน 1: Foundation</strong><br>• ตั้ง LINE OA Broadcast ส่ง 2x/เดือน<br>• สร้าง Instagram Highlight Strain ขายดี<br>• วัด Conversion แต่ละ Channel<br><br><strong>เดือน 2: Growth</strong><br>• เปิด KOC Campaign 3-5 คน<br>• Push Zooties + Gelato X เป็น Hero Product<br>• ทดสอบ LINE Ads เพิ่ม Follower<br><br><strong>เดือน 3: Scale</strong><br>• Scale Channel ที่ Work<br>• เตรียม STH Branch Campaign<br>KPI: Follower IG +20%, LINE OA +500 คน, Repeat Purchase +15%',
+        'positioning|uvp|แตกต่าง': '🎯 <strong>DANK Positioning Analysis:</strong><br><br><strong>UVP แนะนำ:</strong><br>"Premium Cannabis Lifestyle — Curated สำหรับคนรู้จริง"<br><br><strong>Tagline 3 แบบ:</strong><br>1. "Where Connoisseurs Come" 🏆<br>2. "สายตรง สายพรีเมียม สาย DANK" 🌿<br>3. "Not Just Weed. It\'s DANK." ✨<br><br><strong>แนะนำ:</strong> Tagline #2 เหมาะที่สุดสำหรับตลาดไทย Premium ยิ่งกว่าคู่แข่ง',
+        'budget|งบ': '💰 <strong>Budget Allocation แนะนำ (สมมติงบ ฿50,000/เดือน):</strong><br><br>📱 LINE OA + Content: 30% (฿15,000)<br>📸 Instagram Organic + KOC: 25% (฿12,500)<br>🎯 LINE Ads (Follower): 20% (฿10,000)<br>📊 Analytics Tools: 10% (฿5,000)<br>⚡ Reserved/Test: 15% (฿7,500)<br><br>⚠️ Cannabis ยิง Facebook/TikTok Ads ตรงๆ ยาก แนะนำเน้น LINE + KOC ก่อน',
+        'default': '🎯 ผมคือ CMO AI ของ DANK ครับ<br><br>ช่วยถามให้ Specific หน่อยได้ไหมครับ เช่น:<br>• "ช่วยวาง Marketing Plan 90 วัน"<br>• "DANK ควร Positioning ตัวเองว่าอะไร"<br>• "ถ้ามีงบ X บาท ควรแบ่งยังไง"'
+      },
+      copywriter: {
+        'zooties|caption|ig|instagram': '✍️ <strong>Instagram Caption — Zooties 🍇</strong><br><br>———<br>🍇✨ ZOOTIES IS BACK AND IT SLAPS.<br><br>28% THC | Hybrid Heaven<br>กลิ่น Fruity เข้มข้น ที่ทุกคนต้องมา<br>ยอดขาย #1 ของ DANK ไม่ใช่เรื่องบังเอิญ 🏆<br><br>฿220/g — Limited, อย่ารอนาน<br>📍 DANK | Pattanakarn & Sathorn<br>———<br>#DANKCannabisClub #Zooties #BangkokCannabis #PremiumCannabis #THC',
+        'line|broadcast|ประกาศ': '✍️ <strong>LINE OA Broadcast:</strong><br><br>🌿 สวัสดีสมาชิก DANK!<br><br>📦 Zooties กลับมาแล้ว!<br>🍇 28% THC | Hybrid | ขายดีอันดับ 1<br><br>มาก่อน ได้ก่อน — Stock จำกัด<br>📍 PTK & STH<br><br>❤️ DANK Cannabis Club',
+        'tiktok|script|วิดีโอ': '✍️ <strong>TikTok Script 30 วิ — Gelato X:</strong><br><br>[0-3s HOOK] "เคยลอง Strain ที่ทำให้ผ่อนคลายจริงๆ ไหม?"<br>[3-15s] "Gelato X ของ DANK — Indica Dominant ฿180/g"<br>"กลิ่น Sweet Creamy กระแทกทันที"<br>[15-25s] "ยอดขาย Top 2 ของเดือน ไม่ใช่บังเอิญ"<br>[25-30s CTA] "มาที่ DANK หรือ DM มาถามได้เลย 🌿"<br><br>🎵 Sound: Lo-fi chill / ambient',
+        'facebook|fb|ad': '✍️ <strong>Facebook Ad — Livity420 THC Wine:</strong><br><br>Version A (Lifestyle):<br>"เพิ่มอีกมิติให้ทุกค่ำคืน 🍷🌿<br>Livity420 — THC Wine สำหรับคนที่อยากสัมผัสอะไรใหม่กว่าเดิม<br>ที่ DANK Cannabis Club →"<br><br>Version B (Curiosity):<br>"THC + Wine รวมกันเป็นยังไง?<br>ลอง Livity420 ได้ที่ DANK แล้วตัดสินเอง 👀"',
+        'default': '✍️ ผมพร้อมเขียนให้เลยครับ!<br><br>บอกมาว่า:<br>• <strong>สินค้าอะไร</strong> (Zooties, Gelato X, THC Wine...)<br>• <strong>Platform ไหน</strong> (IG, LINE, TikTok, Facebook)<br>• <strong>Tone แบบไหน</strong> (สนุก, premium, เป็นกันเอง)'
+      },
+      paidads: {
+        'cannabis|ads|policy|แบน': '💰 <strong>Cannabis Ads Strategy — ไม่โดนแบน:</strong><br><br>⚠️ Meta/TikTok ห้าม promote Cannabis ตรงๆ<br><br><strong>Angle ที่ทำได้:</strong><br>1. 🏪 Promote "ร้าน / Experience" ไม่ใช่ "สินค้า"<br>2. 🌿 Lifestyle Content — "DANK Club" ไม่ต้องพูดถึง THC<br>3. 📍 LINE Ads เป้าหมาย Add LINE OA แทน<br>4. 🎯 KOC / Micro-influencer ไม่ผ่าน Ad System<br>5. 📊 Retarget คนที่เคยเข้าเว็บด้วย Lifestyle Creative',
+        'roas|break-even|กำไร': '📊 <strong>คำนวณ ROAS — Zooties:</strong><br><br>ราคาขาย: ฿220/g<br>ต้นทุน (สมมติ): ฿80/g<br>Gross Margin: ฿140 (63.6%)<br><br><strong>Break-even ROAS: 1.57x</strong><br>Max CPA ที่ยอมรับได้: ฿88/conversion<br><br>ถ้า ROAS 2x = กำไร ฿60/g หลัง Ads<br>ถ้า ROAS 1.2x = ขาดทุน ฿26/g',
+        'line ads|follower': '💰 <strong>LINE Ads Strategy — เพิ่ม DANK Follower:</strong><br><br>Format แนะนำ: <strong>LINE Timeline Ads + Chat Ads</strong><br><br>Targeting:<br>• อายุ 25-45 ปี Bangkok<br>• ความสนใจ: Lifestyle, Bar & Restaurant, Wellness<br>• Remarketing: คนที่เคยเยี่ยมชมร้าน<br><br>Budget: ฿8,000-12,000/เดือน<br>Target: +300-500 Follower/เดือน<br>Creative: "รับข่าว Strain ใหม่ก่อนใคร 🌿"',
+        'default': '💰 ผมคือ Paid Ads Specialist ครับ<br><br>ถามได้เรื่อง:<br>• Strategy Ads สำหรับ Cannabis<br>• คำนวณ ROAS / Break-even<br>• LINE Ads เพิ่ม Follower<br>• วินิจฉัย Campaign ที่ไม่ Work'
+      },
+      social: {
+        'calendar|content|โพสต์': '📱 <strong>Content Calendar — DANK Instagram (มิ.ย. 2026):</strong><br><br>Week 1: Product Hero — Zooties Close-up Shot 🍇<br>Week 2: Behind The Scene — Budtender ที่ PTK<br>Week 3: Education — "Hybrid vs Indica vs Sativa" Carousel<br>Week 4: Promo — THC Wine x Weekend Vibes<br><br>อัตราส่วน: 60% Content / 20% Education / 20% Promo<br>ความถี่แนะนำ: 4-5 posts/สัปดาห์',
+        'platform|focus|ig|tiktok|line': '📱 <strong>Platform Priority สำหรับ DANK:</strong><br><br>🥇 <strong>Instagram</strong> — Visual Premium ตรงกับ Brand<br>🥈 <strong>LINE OA</strong> — CRM + Retain ลูกค้าประจำ<br>🥉 <strong>TikTok</strong> — Reach Gen Z, ต้องมีคนถ่ายวิดีโอได้<br><br>แนะนำ: Focus IG + LINE ก่อน เมื่อ Community แข็งแล้วขยาย TikTok',
+        'koc|influencer|micro': '📱 <strong>KOC Profile สำหรับ DANK:</strong><br><br>Follower Range: 5K-50K (Micro)<br>Niche: Cannabis Lifestyle / Bangkok Nightlife / Wellness<br>Platform: Instagram + TikTok<br><br>Brief หลัก: "Authentic Experience ที่ DANK"<br>Key Message: Premium Club + Curated Strains + Atmosphere<br><br>ค่าตอบแทน: Product Exchange หรือ ฿1,500-5,000/คน<br>วัดผล: Story Views + Link Click + Follower Growth',
+        'default': '📱 ผมคือ Social Media AI ครับ<br><br>ช่วยได้เรื่อง:<br>• วาง Content Calendar<br>• เลือก Platform ที่เหมาะ<br>• วาง LINE OA Plan<br>• หา KOC / Influencer'
+      },
+      analyst: {
+        'วิเคราะห์|ยอดขาย|sales|analysis': '📊 <strong>Sales Analysis — May 2026:</strong><br><br>🏆 Hero (Push ต่อ): Zooties ฿59,906 (+28% จาก Avg)<br>📈 Growing: Grape Stank ฿27,940 — Momentum ดี<br>⚠️ Watch: บาง SKU ยอดต่ำแต่ Margin สูง<br>🔴 Problem: Out-of-stock 3 items = Lost Revenue<br><br><strong>Recommendation:</strong><br>1. เร่ง Restock The Toad + Bangkok Lemon<br>2. ลด SKU ที่ขายช้าเพื่อเพิ่ม Cash Flow<br>3. ทำ Bundle Zooties + Bar Drink เพิ่ม AOV',
+        'เปรียบ|สาขา|ptk|sth|sathorn': '📊 <strong>Branch Comparison — May 2026:</strong><br><br>PTK: 17 staff | Payroll ฿322,165<br>STH: 5 staff | Payroll ฿95,850<br><br>Commission Rate: STH สูงกว่า (฿13,650 vs ฿9,800)<br>→ STH Staff Commission/Person สูงกว่า = ขายเก่งกว่า<br><br><strong>Action:</strong> ดู Best Practice จาก STH และ Train PTK Staff',
+        'segment|ลูกค้า|customer': '📊 <strong>Customer Segmentation แนะนำสำหรับ DANK:</strong><br><br>🥇 VIP (ซื้อ 3+ครั้ง/เดือน): แจ้ง Strain ใหม่ก่อนใคร + ส่วนลดพิเศษ<br>🌱 Potential (ซื้อ 1-2 ครั้ง): ส่ง Education Content + Soft Offer<br>😴 Sleeping (ไม่มา 30+ วัน): Re-engagement + "We Miss You" Offer<br>🆕 New (ซื้อครั้งแรก): Welcome + แนะนำ Best Sellers<br><br>ทำผ่าน LINE OA Tag ได้เลย',
+        'ab test|ทดสอบ': '📊 <strong>A/B Test Design:</strong><br><br>สมมติทดสอบ Caption IG 2 แบบ:<br><br>Control: "Zooties 🍇 28% THC — ขายดีอันดับ 1"<br>Variant: "ทำไม Zooties ถึงขายดีอันดับ 1 ไม่หยุด? 👀"<br><br>วัดผล: Engagement Rate + Story Click<br>Sample: รอ 500 Impressions ก่อนตัดสิน<br>ระยะเวลา: 7 วัน<br>Winner ชนะถ้า p < 0.05 หรือต่างกัน > 20%',
+        'default': '📊 ผมคือ Analyst AI ครับ<br><br>ช่วยได้เรื่อง:<br>• วิเคราะห์ยอดขาย + แนะนำ Action<br>• เปรียบ 2 สาขา<br>• ออกแบบ A/B Test<br>• แบ่ง Customer Segment'
+      }
+    };
+
+    function switchAIRole(btn, roleKey) {
+      document.querySelectorAll('.ai-role-card').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentAIRole = roleKey;
+      const r = aiRoles[roleKey];
+      document.getElementById('activeRoleLabel').textContent = r.label;
+      document.getElementById('activeRoleKPI').textContent = r.icon + ' ' + r.label.split(' ')[1];
+      document.getElementById('chatTitle').textContent = r.title;
+      document.getElementById('sysPromptPreview').textContent = r.sysPrompt;
+      // Reset chat
+      const box = document.getElementById('aiChatBox');
+      box.innerHTML = `<div class="chat-msg"><div class="chat-from">🤖 ${r.label}</div><div class="chat-bubble ai">${r.welcome}</div></div>`;
+      // Update quick tags
+      const tagArea = document.getElementById('aiQuickTags');
+      tagArea.innerHTML = r.quickTags.map(t => `<div class="quick-tag" onclick="askAI2(${JSON.stringify(t.q)})">${t.label}</div>`).join('');
+      aiHistory = [];
+    }
+
+    // ──────────────────────────────────────
+    // API KEY MANAGEMENT
+    // ──────────────────────────────────────
+    let currentProvider = localStorage.getItem('dank_provider') || 'openai';
+    let apiKeys = JSON.parse(localStorage.getItem('dank_api_keys') || '{}');
+    // {openai: 'sk-...', claude: 'sk-ant-...'}
+
+    function setProvider(p) {
+      currentProvider = p;
+      localStorage.setItem('dank_provider', p);
+      document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('provBtn_' + p).classList.add('active');
+      const modelSel = document.getElementById('modelSelect');
+      const hintEl = document.getElementById('apiHint');
+      if (p === 'openai') {
+        modelSel.innerHTML = `
+          <option value="gpt-4o-mini">GPT-4o mini (เร็ว ประหยัด)</option>
+          <option value="gpt-4o">GPT-4o (ฉลาดกว่า)</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (ถูกที่สุด)</option>`;
+        document.getElementById('apiKeyInput').placeholder = 'sk-...';
+        hintEl.innerHTML = 'ใส่ OpenAI API Key · <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--green)">platform.openai.com/api-keys</a>';
+      } else {
+        modelSel.innerHTML = `
+          <option value="claude-haiku-4-5-20251001">Claude Haiku (เร็ว ประหยัด)</option>
+          <option value="claude-sonnet-4-6">Claude Sonnet (ฉลาดกว่า)</option>`;
+        document.getElementById('apiKeyInput').placeholder = 'sk-ant-api03-...';
+        hintEl.innerHTML = 'ใส่ Anthropic API Key · <a href="https://console.anthropic.com" target="_blank" style="color:var(--green)">console.anthropic.com</a>';
+      }
+      // Show saved key masked
+      const saved = apiKeys[p];
+      document.getElementById('apiKeyInput').value = saved ? '●'.repeat(20) : '';
+      if (saved) showAPIStatus(`✅ ใช้ ${p === 'openai' ? 'OpenAI' : 'Claude'} Key ที่บันทึกไว้`, true);
+      else showAPIStatus('ยังไม่ได้ใส่ Key', false);
+    }
+
+    function saveAPIKey() {
+      const val = document.getElementById('apiKeyInput').value.trim();
+      if (val.startsWith('●')) { showAPIStatus('ใช้ Key เดิมอยู่แล้ว ✅', true); return; }
+      if (currentProvider === 'claude' && !val.startsWith('sk-ant-')) {
+        showAPIStatus('⚠️ Claude Key ต้องขึ้นต้นด้วย sk-ant-...', false); return;
+      }
+      if (currentProvider === 'openai' && !val.startsWith('sk-')) {
+        showAPIStatus('⚠️ OpenAI Key ต้องขึ้นต้นด้วย sk-...', false); return;
+      }
+      apiKeys[currentProvider] = val;
+      localStorage.setItem('dank_api_keys', JSON.stringify(apiKeys));
+      document.getElementById('apiKeyInput').value = '●'.repeat(20);
+      showAPIStatus(`✅ บันทึก ${currentProvider === 'openai' ? 'OpenAI' : 'Claude'} Key แล้ว`, true);
+    }
+
+    function clearAPIKey() {
+      delete apiKeys[currentProvider];
+      localStorage.setItem('dank_api_keys', JSON.stringify(apiKeys));
+      document.getElementById('apiKeyInput').value = '';
+      showAPIStatus('🗑️ ล้าง Key แล้ว', false);
+    }
+
+    async function testAPIKey() {
+      const key = apiKeys[currentProvider];
+      if (!key) { showAPIStatus('⚠️ ยังไม่มี API Key — บันทึกก่อน', false); return; }
+      showAPIStatus('🔄 กำลังทดสอบ...', null);
+      try {
+        const res = await callAI([{role:'user',content:'ตอบว่า "ใช้งานได้" เท่านั้น'}], 'You are a test assistant.');
+        showAPIStatus('✅ เชื่อมสำเร็จ! — ' + res.slice(0,40), true);
+      } catch(e) {
+        showAPIStatus('❌ ' + e.message, false);
+      }
+    }
+
+    function showAPIStatus(msg, ok) {
+      const badge = document.getElementById('apiStatusBadge');
+      const hint = document.getElementById('apiHint');
+      if (ok === true) {
+        badge.style.cssText='background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)';
+        badge.textContent = currentProvider === 'openai' ? '✅ OpenAI พร้อม' : '✅ Claude พร้อม';
+      } else if (ok === false) {
+        badge.style.cssText='background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)';
+        badge.textContent = 'ยังไม่ได้เชื่อม';
+      } else {
+        badge.style.cssText='background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.3)';
+        badge.textContent = '🔄 กำลังเชื่อม';
+      }
+      hint.innerHTML = msg;
+    }
+
+    // ──────────────────────────────────────
+    // AI API CALLS
+    // ──────────────────────────────────────
+    async function callAI(messages, systemPrompt) {
+      const key = apiKeys[currentProvider];
+      if (!key) throw new Error('ยังไม่มี API Key — ใส่ Key ก่อนนะ');
+      const model = document.getElementById('modelSelect').value;
+
+      if (currentProvider === 'openai') {
+        return await callOpenAI(messages, systemPrompt, key, model);
+      } else {
+        return await callClaude(messages, systemPrompt, key, model);
+      }
+    }
+
+    async function callOpenAI(messages, systemPrompt, key, model) {
+      const allMsgs = [{role:'system', content: systemPrompt}, ...messages];
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({ model, messages: allMsgs, max_tokens: 1024, temperature: 0.7 })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices[0].message.content;
+    }
+
+    async function callClaude(messages, systemPrompt, key, model) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model, max_tokens: 1024, system: systemPrompt, messages })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return data.content[0].text;
+    }
+
+    // Init on load
+    setProvider(currentProvider);
+
+    // ──────────────────────────────────────
+    // CHAT FUNCTIONS
+    // ──────────────────────────────────────
+    function askAI2(q) {
+      document.getElementById('aiInput').value = q;
+      sendAI2();
+    }
+
+    async function sendAI2() {
+      const inp = document.getElementById('aiInput');
+      const q = inp.value.trim();
+      if (!q) return;
+      inp.value = '';
+      inp.disabled = true;
+      document.querySelector('.chat-send').disabled = true;
+
+      const box = document.getElementById('aiChatBox');
+      const r = aiRoles[currentAIRole];
+
+      // Add user message
+      box.innerHTML += `<div class="chat-msg user"><div class="chat-bubble user">${escapeHtml(q)}</div></div>`;
+      box.scrollTop = box.scrollHeight;
+
+      // Add to history
+      aiHistory.push({role:'user', content: q});
+
+      // Typing indicator
+      const typingId = 'typing_' + Date.now();
+      box.innerHTML += `<div class="chat-msg" id="${typingId}"><div class="chat-from">${r.icon} ${r.label}</div><div class="chat-bubble ai"><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></div></div>`;
+      box.scrollTop = box.scrollHeight;
+
+      try {
+        let responseText;
+        const hasKey = !!apiKeys[currentProvider];
+        if (hasKey) {
+          // Real API call (OpenAI or Claude)
+          responseText = await callAI([...aiHistory], r.sysPrompt);
+        } else {
+          // Fallback: scripted responses
+          await new Promise(resolve => setTimeout(resolve, 700));
+          const roleResp = aiResponses2[currentAIRole] || aiResponses2.dank;
+          const ql = q.toLowerCase();
+          responseText = roleResp.default;
+          for (const [pattern, ans] of Object.entries(roleResp)) {
+            if (pattern === 'default') continue;
+            if (pattern.split('|').some(p => ql.includes(p))) { responseText = ans; break; }
+          }
+        }
+
+        // Add assistant reply to history
+        aiHistory.push({role:'assistant', content: responseText});
+
+        // Remove typing indicator, render response
+        document.getElementById(typingId)?.remove();
+        const displayText = hasKey
+          ? responseText.replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`(.*?)`/g,'<code style="background:#0d2a0d;padding:1px 5px;border-radius:3px;font-size:11px">$1</code>')
+          : responseText;
+        box.innerHTML += `<div class="chat-msg"><div class="chat-from">${r.icon} ${r.label}</div><div class="chat-bubble ai">${displayText}</div></div>`;
+
+      } catch(err) {
+        document.getElementById(typingId)?.remove();
+        box.innerHTML += `<div class="chat-msg"><div class="chat-from">${r.icon} ${r.label}</div><div class="chat-bubble ai" style="border-color:rgba(239,68,68,.3);color:#f87171">❌ <strong>เชื่อม API ไม่ได้:</strong> ${escapeHtml(err.message)}<br><br>ตรวจสอบ API Key หรือ Network แล้วลองใหม่</div></div>`;
+        aiHistory.pop(); // remove failed user message
+      }
+
+      box.scrollTop = box.scrollHeight;
+      inp.disabled = false;
+      document.querySelector('.chat-send').disabled = false;
+      inp.focus();
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function clearAIChat() {
+      const r = aiRoles[currentAIRole];
+      document.getElementById('aiChatBox').innerHTML = `<div class="chat-msg"><div class="chat-from">🤖 ${r.label}</div><div class="chat-bubble ai">${r.welcome}</div></div>`;
+      aiHistory = [];
+    }
+
+    // Init role on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const dankBtn = document.getElementById('role_dank');
+      if (dankBtn) switchAIRole(dankBtn, 'dank');
+    });
+    </script>
+
+    <style>
+    .typing-dots span { animation: blink 1.2s infinite; font-size:18px; }
+    .typing-dots span:nth-child(2) { animation-delay:.2s; }
+    .typing-dots span:nth-child(3) { animation-delay:.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+    </style>
+
+  </main>
+</div>
+
+<script>
+// ===== NAV =====
+function showSection(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  setTimeout(initCharts,100);
+}
+
+// ===== NOTIF =====
+function toggleNotif(){document.getElementById('notifPanel').classList.toggle('open');}
+function clearNotifs(){
+  document.getElementById('notifList').innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">ไม่มีการแจ้งเตือน</div>';
+  document.getElementById('notifCount').textContent='0';
+  document.getElementById('notifPanel').classList.remove('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#notifPanel')&&!e.target.closest('#notifBtn'))
+    document.getElementById('notifPanel').classList.remove('open');
+});
+
+// ===== EXPORT =====
+function exportReport(){
+  const rows=[['DANK Cannabis Club — Daily Report','24 Jun 2026'],['',''],
+    ['KPI','Value'],['Inventory Value','฿546,593'],['Payroll May 2026','฿418,015'],
+    ['Total Staff','22'],['Low/Zero Stock Items','12'],['',''],
+    ['Top Sellers (May)','Revenue'],['Zooties','฿59,906'],['Gelato X','฿36,020'],
+    ['MellowZ','฿32,080'],['ztupid','฿31,560'],['Grape Stank','฿27,940'],['',''],
+    ['Out of Stock',''],['The Toad','0g'],['Bangkok Lemon','0g'],['Snow Banana','0g'],['Halle Berry','0.15g (Critical)']];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='DANK_Report_2026-06-24.csv';a.click();
+}
+
+// ===== CHARTS =====
+let chartsInit=false, salesChart;
+
+function initCharts(){
+  if(chartsInit)return;
+  const mkBar=(id,labels,data,cb)=>{
+    const el=document.getElementById(id);
+    if(!el||!el.getContext)return;
+    new Chart(el,{type:'bar',data:{labels,datasets:[{data,backgroundColor:typeof data[0]==='number'?'#22c55e':data,borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'#1e3a1e'}},
+          y:{ticks:{color:'#64748b',callback:cb||((v)=>v)},grid:{color:'#1e3a1e'}}}}});
+  };
+  const mkDoughnut=(id,labels,data,colors)=>{
+    const el=document.getElementById(id);
+    if(!el||!el.getContext)return;
+    new Chart(el,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}}}});
+  };
+
+  mkBar('topSellersBar',['Zooties','Gelato X','MellowZ','ztupid','Grape Stank'],[59906,36020,32080,31560,27940],v=>'฿'+v.toLocaleString());
+  mkDoughnut('payrollPie',['Pattanakarn','Sathorn'],[322165,95850],['#22c55e','#4ade80']);
+  initSalesChart('daily');
+  mkBar('strainRevenueChart',['Zooties','Gelato X','MellowZ','ztupid','Grape Stank','King Cherry','S.Cheesecake','CoCo Chanel'],[59906,36020,32080,31560,27940,17640,14725,23040],v=>'฿'+v.toLocaleString());
+  mkDoughnut('categoryMixChart',['Premium','Mid','Value','Bar','Other'],[35,40,15,7,3],['#22c55e','#16a34a','#15803d','#4ade80','#86efac']);
+  mkBar('trafficChart',['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'],[60,55,65,70,90,100,85],v=>v+'%');
+  mkDoughnut('segmentChart',['Loyal (5+)','Regular (2-4x)','New (1x)'],[28,35,37],['#22c55e','#4ade80','#166534']);
+  mkBar('payrollBar',['Bank','Na Lek','Yin','ALEX','AMORE','JACK','Pond','MENG','MEL','PLOY'],[38000,30000,22500,19000,21300,19500,19100,22933,22200,21450],v=>'฿'+v.toLocaleString());
+  chartsInit=true;
+}
+
+function initSalesChart(mode){
+  const el=document.getElementById('salesTrendChart');
+  if(!el||!el.getContext)return;
+  if(salesChart)salesChart.destroy();
+  let labels,d1,d2,l1,l2;
+  if(mode==='daily'){
+    labels=Array.from({length:24},(_,i)=>`Jun ${i+1}`);
+    d1=[7200,6800,8100,9200,8500,7900,10200,9800,8700,11200,10500,9300,8800,9700,11000,12300,10800,9500,8900,10100,9200,8700,7600,8300];
+    l1='Daily Sales (฿)';
+  }else if(mode==='weekly'){
+    labels=['Week 1','Week 2','Week 3','Week 4'];
+    d1=[52000,61000,68000,72000];d2=[44000,52000,58000,63000];l1='Pattanakarn';l2='Sathorn';
+  }else{
+    labels=['Jan','Feb','Mar','Apr','May','Jun*'];
+    d1=[185000,198000,220000,235000,250000,245000];d2=[160000,175000,195000,210000,225000,220000];l1='Total';l2='Prev Year';
+  }
+  const ds=[{label:l1,data:d1,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.4,pointRadius:3}];
+  if(d2)ds.push({label:l2,data:d2,borderColor:'#4ade80',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:3,borderDash:[5,3]});
+  salesChart=new Chart(el,{type:'line',data:{labels,datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e3a1e'}},
+        y:{ticks:{color:'#64748b',callback:v=>'฿'+v.toLocaleString()},grid:{color:'#1e3a1e'}}}}});
+}
+
+function switchSalesChart(mode,el){
+  document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  chartsInit=false;
+  initSalesChart(mode);
+}
+
+// ===== STAFF EDITOR =====
+const staffData=[
+  {name:'Bank',   role:'Manager',      salary:38000,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'Na Lek', role:'Senior Staff', salary:30000,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'Yin',    role:'Senior Staff', salary:22500,commission:0,    shifts:['evening'],           branch:'PTK'},
+  {name:'ALEX',   role:'Staff',        salary:19000,commission:0,    shifts:['morning','evening'], branch:'PTK'},
+  {name:'AMORE',  role:'Staff',        salary:18000,commission:3300, shifts:['evening'],           branch:'PTK'},
+  {name:'JACK',   role:'Bar',          salary:18000,commission:1500, shifts:['evening','night'],   branch:'PTK'},
+  {name:'MON',    role:'Staff',        salary:18000,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'ZAW',    role:'Rider',        salary:17990,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'HONEY',  role:'Bar',          salary:17000,commission:0,    shifts:['evening'],           branch:'PTK'},
+  {name:'Pond',   role:'Staff',        salary:16100,commission:3000, shifts:['evening'],           branch:'PTK'},
+  {name:'BOOM',   role:'Kitchen',      salary:16000,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'DYLAN',  role:'Staff',        salary:15600,commission:0,    shifts:['night'],             branch:'PTK'},
+  {name:'SOE',    role:'Kitchen',      salary:14500,commission:0,    shifts:['evening'],           branch:'PTK'},
+  {name:'Pam',    role:'Staff',        salary:14300,commission:2000, shifts:['morning'],           branch:'PTK'},
+  {name:'GUS',    role:'Staff',        salary:13400,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'MARTIN', role:'Staff',        salary:12600,commission:0,    shifts:['morning'],           branch:'PTK'},
+  {name:'RENA',   role:'Staff',        salary:11375,commission:0,    shifts:['night'],             branch:'PTK'},
+  {name:'MENG',   role:'Staff',        salary:19633,commission:3300, shifts:['morning','evening'], branch:'STH'},
+  {name:'MEL',    role:'Staff',        salary:18600,commission:3600, shifts:['evening'],           branch:'STH'},
+  {name:'PLOY',   role:'Staff',        salary:18600,commission:2850, shifts:['evening'],           branch:'STH'},
+  {name:'RAIZO',  role:'Staff',        salary:17567,commission:2400, shifts:['morning'],           branch:'STH'},
+  {name:'POK',    role:'Staff',        salary:7800, commission:1500, shifts:['morning'],           branch:'STH'},
+];
+
+function buildStaffTable(){
+  const tbody=document.getElementById('staffTableBody');
+  if(!tbody)return;
+  let html='',last='';
+  staffData.forEach((s,i)=>{
+    if(s.branch!==last){
+      html+=`<tr class="branch-divider"><td colspan="7">${s.branch==='PTK'?'🏢 Pattanakarn Branch':'🏢 Sathorn Branch'}</td></tr>`;
+      last=s.branch;
+    }
+    html+=`<tr id="row_${i}">
+      <td class="row-num">${i+1}</td>
+      <td><input class="staff-edit-input" id="name_${i}" value="${s.name}" placeholder="ชื่อพนักงาน"></td>
+      <td><input class="staff-edit-input role-input" id="role_${i}" value="${s.role}" placeholder="ตำแหน่ง"></td>
+      <td><input class="staff-edit-input salary-input" id="salary_${i}" type="number" value="${s.salary}" min="0" step="100"></td>
+      <td><input class="staff-edit-input salary-input" id="comm_${i}" type="number" value="${s.commission}" min="0" step="100"></td>
+      <td><div class="shift-checks">
+        <label class="shift-label"><input type="checkbox" id="night_${i}" ${s.shifts.includes('night')?'checked':''} onchange="updateShift(${i})"><span class="shift-chip night">🌙 Night</span></label>
+        <label class="shift-label"><input type="checkbox" id="morning_${i}" ${s.shifts.includes('morning')?'checked':''} onchange="updateShift(${i})"><span class="shift-chip morning">☀️ Morning</span></label>
+        <label class="shift-label"><input type="checkbox" id="evening_${i}" ${s.shifts.includes('evening')?'checked':''} onchange="updateShift(${i})"><span class="shift-chip evening">🌆 Evening</span></label>
+      </div></td>
+      <td><button onclick="deleteStaffRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px;" title="Delete">🗑️</button></td>
+    </tr>`;
+  });
+  tbody.innerHTML=html;
+  updateStaffSummary();
+}
+buildStaffTable();
+
+function updateShift(i){
+  const s=[];
+  if(document.getElementById(`night_${i}`)?.checked)s.push('night');
+  if(document.getElementById(`morning_${i}`)?.checked)s.push('morning');
+  if(document.getElementById(`evening_${i}`)?.checked)s.push('evening');
+  staffData[i].shifts=s;
+}
+function deleteStaffRow(i){
+  if(!confirm(`ลบ "${staffData[i].name}" ออกจากทีม?`))return;
+  staffData.splice(i,1);buildStaffTable();
+}
+function addStaffRow(){
+  staffData.push({name:'',role:'Staff',salary:15000,commission:0,shifts:['morning'],branch:'PTK'});
+  buildStaffTable();
+  const last=staffData.length-1;
+  setTimeout(()=>document.getElementById(`name_${last}`)?.focus(),100);
+}
+function saveAllStaff(){
+  let valid=true;
+  staffData.forEach((s,i)=>{
+    const n=document.getElementById(`name_${i}`);
+    const r=document.getElementById(`role_${i}`);
+    const sal=document.getElementById(`salary_${i}`);
+    const c=document.getElementById(`comm_${i}`);
+    if(n)s.name=n.value.trim();
+    if(r)s.role=r.value.trim();
+    if(sal)s.salary=parseInt(sal.value)||0;
+    if(c)s.commission=parseInt(c.value)||0;
+    updateShift(i);
+    if(!s.name){n?.focus();valid=false;}
+  });
+  if(!valid){alert('⚠️ กรุณากรอกชื่อพนักงานให้ครบ');return;}
+  updateStaffSummary();
+  const btn=event.target,orig=btn.textContent;
+  btn.textContent='✅ Saved!';btn.style.background='var(--green)';
+  setTimeout(()=>{btn.textContent=orig;btn.style.background='';},2000);
+}
+function updateStaffSummary(){
+  const el=document.getElementById('staffSummary');if(!el)return;
+  const total=staffData.length;
+  const pay=staffData.reduce((a,s)=>a+s.salary+s.commission,0);
+  const ptk=staffData.filter(s=>s.branch==='PTK').length;
+  const sth=staffData.filter(s=>s.branch==='STH').length;
+  el.innerHTML=`
+    <span>👥 Total: <strong style="color:var(--green3)">${total}</strong></span>
+    <span>🏢 PTK: <strong>${ptk}</strong> · STH: <strong>${sth}</strong></span>
+    <span>💰 Payroll: <strong style="color:var(--green3)">฿${pay.toLocaleString()}</strong></span>
+    <span>🌙 Night: <strong>${staffData.filter(s=>s.shifts.includes('night')).length}</strong></span>
+    <span>☀️ Morning: <strong>${staffData.filter(s=>s.shifts.includes('morning')).length}</strong></span>
+    <span>🌆 Evening: <strong>${staffData.filter(s=>s.shifts.includes('evening')).length}</strong></span>`;
+}
+function saveStaffNames(){saveAllStaff();}
+
+// ===== AI CHAT =====
+let aiResponses={
+  'top sellers':'สินค้าขายดีสุด May 2026 🏆\n\n🥇 Zooties — 272g · ฿59,906\n🥈 Gelato X — 360g · ฿36,020\n🥉 MellowZ — 321g · ฿32,080\n4. ztupid — 316g · ฿31,560\n5. Grape Stank — 279g · ฿27,940',
+  'หมด':'❌ สินค้าหมด Stock:\n\n• The Toad (28-35%) — OUT\n• Bangkok Lemon (31%) — OUT\n• Snow Banana (60%) — OUT\n• Halle Berry (30%) — เหลือ 0.15g ⚠️\n\n→ ควร reorder ทันที!',
+  'ทำงาน':'📅 วันพุธ 24 มิ.ย. 2026\n\n🌙 Night: Rena\n☀️ Day: Steve · Gus\n🌆 Evening: Alex · Dylan\n🍹 Bar: Honey · Jack\n🏠 Off: Mon · Pam · Amore',
+  'payroll':'💰 Payroll May 2026\n\nPattanakarn: ฿322,165 (17 staff)\nSathorn: ฿95,850 (5 staff)\n\nรวม: ฿418,015\nCommission รวม: ฿23,450\nTop earner: Bank ฿38,000',
+  'caption':'📸 IG Caption — Zooties\n\n🍇✨ ZOOTIES is taking over DANK!\n\nยอดขายอันดับ 1 🏆\n28% THC · Hybrid · กลิ่น fruity\n฿220/g — Premium สุด!\n\n#DANKCannabisClub #Zooties #TopSeller',
+  'reorder':'📋 Reorder List (ด่วน)\n\n🔴 The Toad — 219g/mo · ฿120/g\n🔴 Bangkok Lemon — 273g/mo · ฿50/g\n🔴 Snow Banana — 43g/mo · ฿150/g\n🟡 Halle Berry — 0.15g เหลือ\n🟡 Sherb Tank — 34g เหลือ',
+  'default':'ขอโทษค่ะ ไม่เข้าใจคำถามนี้ 🙏\n\nลองถาม:\n• สินค้าขายดีสุด\n• สินค้าหมด stock\n• วันนี้ใครทำงาน\n• payroll\n• caption Zooties\n• reorder list'
+};
+function getAIResponse(msg){
+  const m=msg.toLowerCase();
+  if(m.includes('top')||m.includes('seller')||m.includes('ขายดี'))return aiResponses['top sellers'];
+  if(m.includes('หมด')||m.includes('out')||m.includes('stock'))return aiResponses['หมด'];
+  if(m.includes('ทำงาน')||m.includes('shift')||m.includes('วันนี้'))return aiResponses['ทำงาน'];
+  if(m.includes('payroll')||m.includes('เงินเดือน')||m.includes('pay'))return aiResponses['payroll'];
+  if(m.includes('caption')||m.includes('ig')||m.includes('zooties')||m.includes('instagram'))return aiResponses['caption'];
+  if(m.includes('reorder')||m.includes('order')||m.includes('สั่ง'))return aiResponses['reorder'];
+  return aiResponses['default'];
+}
+function sendChat(){
+  const input=document.getElementById('chatInput'),box=document.getElementById('chatBox');
+  const msg=input.value.trim();if(!msg)return;
+  box.innerHTML+=`<div class="chat-msg"><div class="chat-from">👤 Customer</div><div class="chat-bubble user">${msg}</div></div>`;
+  input.value='';
+  setTimeout(()=>{
+    box.innerHTML+=`<div class="chat-msg"><div class="chat-from">🤖 DANK AI</div><div class="chat-bubble ai">${getAIResponse(msg).replace(/\n/g,'<br>')}</div></div>`;
+    box.scrollTop=box.scrollHeight;
+  },600);
+  box.scrollTop=box.scrollHeight;
+}
+function askAI(msg){document.getElementById('chatInput').value=msg;sendChat();}
+function sendAI(){
+  const input=document.getElementById('aiInput'),box=document.getElementById('aiChatBox');
+  const msg=input.value.trim();if(!msg)return;
+  box.innerHTML+=`<div class="chat-msg"><div class="chat-from">👤 You</div><div class="chat-bubble user">${msg}</div></div>`;
+  input.value='';
+  setTimeout(()=>{
+    box.innerHTML+=`<div class="chat-msg"><div class="chat-from">🤖 DANK AI</div><div class="chat-bubble ai">${getAIResponse(msg).replace(/\n/g,'<br>')}</div></div>`;
+    box.scrollTop=box.scrollHeight;
+  },500);
+}
+function askAI2(msg){document.getElementById('aiInput').value=msg;sendAI();}
+
+window.addEventListener('load',()=>setTimeout(initCharts,200));
+</script>
+
+<!-- PapaParse for CSV -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<!-- SheetJS for Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════
+// EXPENSE TRACKER
+// ═══════════════════════════════════════
+const CAT_ICONS = {'สินค้า':'📦','ค่าเช่า':'🏠','ไฟฟ้า/น้ำ':'⚡','การตลาด':'📣','อื่นๆ':'📋'};
+let expenses = JSON.parse(localStorage.getItem('dank_expenses') || '[]');
+let expFilterCat = 'all';
+
+// Set today's date as default
+document.addEventListener('DOMContentLoaded', () => {
+  const d = document.getElementById('expDateInput');
+  if (d) d.value = new Date().toISOString().split('T')[0];
+  renderExpenses();
+});
+
+function addExpense() {
+  const name = document.getElementById('expNameInput').value.trim();
+  const amt  = parseFloat(document.getElementById('expAmtInput').value);
+  const cat  = document.getElementById('expCatInput').value;
+  const date = document.getElementById('expDateInput').value;
+  if (!name) { document.getElementById('expNameInput').focus(); return; }
+  if (!amt || amt <= 0) { document.getElementById('expAmtInput').focus(); return; }
+  expenses.push({ id: Date.now(), name, amount: amt, category: cat, date: date || new Date().toISOString().split('T')[0] });
+  saveExpenses();
+  document.getElementById('expNameInput').value = '';
+  document.getElementById('expAmtInput').value = '';
+  renderExpenses();
+}
+
+function deleteExpense(id) {
+  expenses = expenses.filter(e => e.id !== id);
+  saveExpenses();
+  renderExpenses();
+}
+
+function saveExpenses() {
+  localStorage.setItem('dank_expenses', JSON.stringify(expenses));
+}
+
+function filterExpCat(btn, cat) {
+  expFilterCat = cat;
+  document.querySelectorAll('.exp-cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderExpenses();
+}
+
+function renderExpenses() {
+  const filtered = expFilterCat === 'all' ? expenses : expenses.filter(e => e.category === expFilterCat);
+  const total = filtered.reduce((s, e) => s + e.amount, 0);
+  const tbody = document.getElementById('expTableBody');
+  const empty = document.getElementById('expEmpty');
+  const totalRow = document.getElementById('expTotalRow');
+
+  // KPIs
+  document.getElementById('expTotalKPI').textContent  = '฿' + total.toLocaleString('th-TH');
+  document.getElementById('expCountKPI').textContent  = filtered.length;
+  document.getElementById('expAvgKPI').textContent    = filtered.length ? '฿' + Math.round(total/filtered.length).toLocaleString('th-TH') : '฿0';
+  // Top category
+  const catTotals = {};
+  expenses.forEach(e => catTotals[e.category] = (catTotals[e.category]||0) + e.amount);
+  const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('expTopCatKPI').textContent = topCat ? (CAT_ICONS[topCat[0]]||'') + ' ' + topCat[0] : '—';
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    totalRow.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  totalRow.style.display = '';
+  document.getElementById('expTotalCell').textContent = '฿' + total.toLocaleString('th-TH');
+
+  // Sort by date desc
+  const sorted = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
+  tbody.innerHTML = sorted.map(e => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+      <td style="padding:9px 12px;color:var(--text1)">${e.name}</td>
+      <td style="padding:9px 12px"><span style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.15);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2)">${CAT_ICONS[e.category]||'📋'} ${e.category}</span></td>
+      <td style="padding:9px 12px;color:var(--text3);font-size:11px">${formatExpDate(e.date)}</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:600;color:#f87171">฿${e.amount.toLocaleString('th-TH')}</td>
+      <td style="padding:9px 6px;text-align:center"><button onclick="deleteExpense(${e.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" title="ลบ">🗑️</button></td>
+    </tr>`).join('');
+}
+
+function formatExpDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'2-digit'});
+}
+
+function exportExpenseCSV() {
+  const filtered = expFilterCat === 'all' ? expenses : expenses.filter(e => e.category === expFilterCat);
+  const total = filtered.reduce((s,e) => s+e.amount, 0);
+  const rows = [['รายการ','หมวด','วันที่','จำนวนเงิน'],
+    ...filtered.map(e => [e.name, e.category, e.date, e.amount]),
+    ['','','รวม', total]];
+  const csv = '﻿' + rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = `DANK_Expenses_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// CSS for expense category buttons
+const expStyle = document.createElement('style');
+expStyle.textContent = `.exp-cat-btn{background:#0d1a0d;border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--text3);font-size:11px;cursor:pointer;transition:.2s}.exp-cat-btn:hover,.exp-cat-btn.active{background:rgba(74,222,128,.1);border-color:var(--green);color:var(--green)}`;
+document.head.appendChild(expStyle);
+
+// ═══════════════════════════════════════
+// IMPORT POS SYSTEM
+// ═══════════════════════════════════════
+let importType = 'inventory';
+let parsedImportData = [];
+
+const importHints = {
+  inventory: `<strong>📦 Inventory / สินค้า</strong> — คอลัมน์ที่รองรับ:<br>
+    <span style="color:var(--green)">ชื่อสินค้า / name / product</span> · <span style="color:var(--green)">ราคา / price</span> · <span style="color:var(--green)">จำนวน / stock / qty</span> · THC% · หมวดหมู่ / category<br>
+    ไฟล์จาก Food Story: ไปที่ <strong>สินค้า → Export</strong> แล้วเลือก CSV`,
+  sales: `<strong>💰 ยอดขาย / Sales</strong> — คอลัมน์ที่รองรับ:<br>
+    <span style="color:var(--green)">วันที่ / date</span> · <span style="color:var(--green)">ชื่อสินค้า / product</span> · <span style="color:var(--green)">จำนวน / qty</span> · <span style="color:var(--green)">ยอดรวม / total / amount</span><br>
+    ไฟล์จาก Food Story: ไปที่ <strong>รายงาน → ยอดขาย → Export</strong>`,
+  staff: `<strong>👥 พนักงาน / Staff</strong> — คอลัมน์ที่รองรับ:<br>
+    <span style="color:var(--green)">ชื่อ / name</span> · <span style="color:var(--green)">ตำแหน่ง / role / position</span> · <span style="color:var(--green)">เงินเดือน / salary</span> · commission · สาขา / branch<br>
+    หรือสร้าง Excel เองตาม format นี้`,
+  customers: `<strong>🧑 ลูกค้า / Customers</strong> — คอลัมน์ที่รองรับ:<br>
+    <span style="color:var(--green)">ชื่อ / name</span> · <span style="color:var(--green)">เบอร์โทร / phone / tel</span> · อีเมล / email · แต้ม / points · วันเกิด / birthday<br>
+    ไฟล์จาก Food Story: ไปที่ <strong>ลูกค้า → Export</strong>`
+};
+
+function openImportModal() {
+  document.getElementById('importModal').style.display = 'flex';
+  setImportType(document.getElementById('itab_inventory'), 'inventory');
+  resetImportState();
+}
+
+function closeImportModal() {
+  document.getElementById('importModal').style.display = 'none';
+  resetImportState();
+}
+
+function setImportType(btn, type) {
+  importType = type;
+  document.querySelectorAll('.imp-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('importTypeHint').innerHTML = importHints[type];
+  resetImportState();
+}
+
+function resetImportState() {
+  parsedImportData = [];
+  document.getElementById('importPreview').style.display = 'none';
+  document.getElementById('importError').style.display = 'none';
+  document.getElementById('posFileInput').value = '';
+  document.getElementById('confirmImportBtn').disabled = true;
+  document.getElementById('confirmImportBtn').style.opacity = '.5';
+  document.getElementById('dropZone').style.borderColor = 'rgba(74,222,128,.3)';
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'rgba(74,222,128,.3)';
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  document.getElementById('importError').style.display = 'none';
+  document.getElementById('importPreview').style.display = 'none';
+
+  if (ext === 'csv') {
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true, encoding: 'UTF-8',
+      complete: r => renderPreview(r.data, file.name),
+      error: e => showImportError('อ่านไฟล์ CSV ไม่ได้: ' + e.message)
+    });
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, {type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+        renderPreview(data, file.name);
+      } catch(err) { showImportError('อ่านไฟล์ Excel ไม่ได้: ' + err.message); }
+    };
+    reader.readAsBinaryString(file);
+  } else {
+    showImportError('รองรับเฉพาะไฟล์ .csv, .xlsx, .xls เท่านั้น');
+  }
+}
+
+function normalizeKey(k) { return (k||'').toLowerCase().replace(/\s+/g,'').replace(/_/g,''); }
+
+function mapColumns(row) {
+  const n = k => normalizeKey(k);
+  const keys = Object.keys(row);
+  const find = (...opts) => keys.find(k => opts.some(o => n(k).includes(o))) || null;
+
+  if (importType === 'inventory') return {
+    name:  find('ชื่อสินค้า','productname','name','สินค้า','product','strain','item'),
+    price: find('ราคา','price','ราคาขาย','sellingprice'),
+    stock: find('จำนวน','stock','qty','quantity','คงเหลือ','remaining','คงคลัง'),
+    thc:   find('thc','thc%'),
+    category: find('หมวดหมู่','category','ประเภท','type')
+  };
+  if (importType === 'sales') return {
+    date:    find('วันที่','date','datetime','เวลา','time'),
+    product: find('ชื่อสินค้า','product','สินค้า','item','name','รายการ'),
+    qty:     find('จำนวน','qty','quantity','จน.'),
+    total:   find('ยอดรวม','total','amount','ยอด','revenue','รวม','sales')
+  };
+  if (importType === 'staff') return {
+    name:       find('ชื่อ','name','พนักงาน','employee'),
+    role:       find('ตำแหน่ง','role','position','หน้าที่'),
+    salary:     find('เงินเดือน','salary','base','เงิน'),
+    commission: find('commission','คอมมิสชั่น','คอม','bonus'),
+    branch:     find('สาขา','branch','shop')
+  };
+  if (importType === 'customers') return {
+    name:   find('ชื่อ','name','ลูกค้า','customer'),
+    phone:  find('เบอร์','phone','tel','mobile','โทร'),
+    email:  find('email','อีเมล','mail'),
+    points: find('แต้ม','point','score','loyalty'),
+    visits: find('ครั้ง','visit','purchase','order')
+  };
+}
+
+function renderPreview(data, filename) {
+  if (!data || data.length === 0) { showImportError('ไฟล์ว่างเปล่าหรือรูปแบบไม่ถูกต้อง'); return; }
+  parsedImportData = data;
+  const mapping = mapColumns(data[0]);
+  const preview5 = data.slice(0, 8);
+  const cols = Object.keys(data[0]);
+
+  // Build table
+  let html = `<table class="imp-table"><thead><tr>${cols.map(c => {
+    const isMapped = Object.values(mapping||{}).includes(c);
+    return `<th style="${isMapped?'color:#fbbf24':''}">${c}${isMapped?' ✓':''}</th>`;
+  }).join('')}</tr></thead><tbody>`;
+  html += preview5.map(row =>
+    `<tr>${cols.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`
+  ).join('');
+  html += '</tbody></table>';
+
+  document.getElementById('previewTableWrap').innerHTML = html;
+  document.getElementById('previewTitle').textContent = `📄 ${filename}`;
+  document.getElementById('previewCount').textContent = `${data.length} แถว · แสดง 8 แถวแรก`;
+
+  // Summary
+  const m = mapping || {};
+  let summaryLines = [`<strong>📋 ตรวจพบ ${data.length} รายการ จาก ${filename}</strong>`];
+  if (importType === 'inventory' && m.name) {
+    const names = [...new Set(data.map(r => r[m.name]).filter(Boolean))];
+    summaryLines.push(`✅ สินค้า ${names.length} รายการ${names.slice(0,4).map(n=>`<br>&nbsp;&nbsp;• ${n}`).join('')}${names.length>4?`<br>&nbsp;&nbsp;...และอีก ${names.length-4} รายการ`:''}`);
+    if (m.price) summaryLines.push(`💰 มีข้อมูลราคา`);
+    if (m.stock) summaryLines.push(`📦 มีข้อมูล Stock`);
+  }
+  if (importType === 'sales' && m.product) {
+    const products = [...new Set(data.map(r=>r[m.product]).filter(Boolean))];
+    const totalAmt = m.total ? data.reduce((s,r)=>s+(parseFloat((r[m.total]||'0').toString().replace(/,/g,''))||0),0) : 0;
+    summaryLines.push(`✅ สินค้า ${products.length} ประเภท`);
+    if (totalAmt > 0) summaryLines.push(`💰 ยอดรวม: ฿${totalAmt.toLocaleString('th-TH',{maximumFractionDigits:0})}`);
+  }
+  if (importType === 'staff' && m.name) {
+    summaryLines.push(`✅ พนักงาน ${data.length} คน`);
+    if (m.salary) {
+      const total = data.reduce((s,r)=>s+(parseFloat((r[m.salary]||'0').toString().replace(/,/g,''))||0),0);
+      summaryLines.push(`💰 Payroll รวม: ฿${total.toLocaleString('th-TH',{maximumFractionDigits:0})}`);
+    }
+  }
+  if (importType === 'customers' && m.name) {
+    summaryLines.push(`✅ ลูกค้า ${data.length} คน`);
+    if (m.phone) summaryLines.push(`📱 มีเบอร์โทรศัพท์`);
+  }
+
+  if (!Object.values(m||{}).some(Boolean)) {
+    summaryLines.push(`⚠️ ไม่สามารถ map คอลัมน์ได้อัตโนมัติ — ตรวจสอบชื่อหัวคอลัมน์`);
+  }
+
+  document.getElementById('importSummary').innerHTML = summaryLines.join('<br>');
+  document.getElementById('importPreview').style.display = 'block';
+  document.getElementById('confirmImportBtn').disabled = false;
+  document.getElementById('confirmImportBtn').style.opacity = '1';
+}
+
+function showImportError(msg) {
+  const el = document.getElementById('importError');
+  el.innerHTML = `⚠️ ${msg}`;
+  el.style.display = 'block';
+}
+
+function confirmImport() {
+  if (!parsedImportData.length) return;
+  const mapping = mapColumns(parsedImportData[0]);
+  const m = mapping || {};
+  const count = parsedImportData.length;
+
+  if (importType === 'inventory') {
+    applyInventoryImport(parsedImportData, m);
+    showImportSuccess(`นำเข้าสินค้า ${count} รายการเรียบร้อย ✅`);
+  } else if (importType === 'sales') {
+    applySalesImport(parsedImportData, m);
+    showImportSuccess(`นำเข้ายอดขาย ${count} รายการเรียบร้อย ✅`);
+  } else if (importType === 'staff') {
+    applyStaffImport(parsedImportData, m);
+    showImportSuccess(`นำเข้าพนักงาน ${count} คนเรียบร้อย ✅`);
+  } else if (importType === 'customers') {
+    applyCustomerImport(parsedImportData, m);
+    showImportSuccess(`นำเข้าลูกค้า ${count} คนเรียบร้อย ✅`);
+  }
+  setTimeout(closeImportModal, 1800);
+}
+
+// ─── APPLY IMPORTS ─────────────────────
+
+function applyInventoryImport(data, m) {
+  const tbody = document.querySelector('#inventory .table-wrap table tbody');
+  if (!tbody || !m.name) return;
+  // Prepend imported rows (highlight in purple)
+  const rows = data.map(r => {
+    const name  = r[m.name]  || '—';
+    const price = parseFloat((r[m.price]||'0').toString().replace(/,/g,'')) || 0;
+    const stock = parseFloat((r[m.stock]||'0').toString().replace(/,/g,'')) || 0;
+    const thc   = r[m.thc]   || '—';
+    const cat   = r[m.category] || 'Imported';
+    const status = stock <= 0 ? '<span class="badge" style="background:rgba(239,68,68,.15);color:#f87171">OUT</span>'
+                 : stock < 5  ? '<span class="badge badge-yellow">LOW</span>'
+                               : '<span class="badge badge-green">OK</span>';
+    return `<tr style="border-left:3px solid #6366f1">
+      <td><strong>${name}</strong></td><td>${thc}%</td>
+      <td>${stock}g</td><td>—</td>
+      <td>฿${price}</td><td>฿${(price*stock).toLocaleString()}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows + tbody.innerHTML;
+  // Update KPI
+  document.querySelector('#inventory .kpi-sub') && (document.querySelector('#inventory .kpi-sub').textContent = `รวม ${tbody.querySelectorAll('tr').length} รายการ`);
+}
+
+function applySalesImport(data, m) {
+  // Update sales chart data with imported data
+  const salesByProduct = {};
+  data.forEach(r => {
+    const prod  = r[m.product] || 'Unknown';
+    const total = parseFloat((r[m.total]||'0').toString().replace(/,/g,'')) || 0;
+    salesByProduct[prod] = (salesByProduct[prod] || 0) + total;
+  });
+  // Show summary in sales section
+  const salesSection = document.querySelector('#sales .section-sub');
+  if (salesSection) {
+    const grandTotal = Object.values(salesByProduct).reduce((a,b)=>a+b,0);
+    salesSection.textContent = `Imported ${data.length} records · ยอดรวม ฿${grandTotal.toLocaleString('th-TH',{maximumFractionDigits:0})}`;
+  }
+  // Add import banner to sales section
+  const salesCard = document.querySelector('#sales .card');
+  if (salesCard) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#0d1a0d;border:1px solid #6366f1;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#a5b4fc';
+    const top5 = Object.entries(salesByProduct).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    banner.innerHTML = `<strong>📊 ข้อมูล Sales ที่ Import แล้ว (${data.length} รายการ):</strong><br>` +
+      top5.map(([p,v])=>`• ${p}: ฿${v.toLocaleString()}`).join('<br>');
+    salesCard.prepend(banner);
+  }
+}
+
+function applyStaffImport(data, m) {
+  if (!m.name || typeof staffData === 'undefined') return;
+  const newStaff = data.map(r => ({
+    name:       r[m.name]       || 'ไม่ระบุ',
+    role:       r[m.role]       || 'Staff',
+    salary:     parseFloat((r[m.salary]||'0').toString().replace(/,/g,''))     || 0,
+    commission: parseFloat((r[m.commission]||'0').toString().replace(/,/g,'')) || 0,
+    shifts:     ['morning'],
+    branch:     r[m.branch]     || 'PTK'
+  }));
+  staffData.push(...newStaff);
+  if (typeof buildStaffTable === 'function') buildStaffTable();
+  if (typeof updateStaffSummary === 'function') updateStaffSummary();
+}
+
+function applyCustomerImport(data, m) {
+  // Add customer count to dashboard KPI
+  const custSection = document.querySelector('#customers');
+  if (!custSection) return;
+  const banner = document.createElement('div');
+  banner.className = 'card mb-14';
+  banner.style.border = '1px solid #6366f1';
+  const headers = m.name ? Object.values(m).filter(Boolean) : [];
+  banner.innerHTML = `<div class="card-header"><span class="card-title">🧑 Customers นำเข้าจาก POS</span><span class="badge" style="background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)">${data.length} คน</span></div>
+    <div style="overflow-x:auto;max-height:240px"><table class="imp-table">
+      <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${data.slice(0,20).map(r=>`<tr>${headers.map(h=>`<td>${r[h]??''}</td>`).join('')}</tr>`).join('')}
+      ${data.length>20?`<tr><td colspan="${headers.length}" style="text-align:center;color:var(--text3)">...และอีก ${data.length-20} รายการ</td></tr>`:''}
+      </tbody></table></div>`;
+  custSection.prepend(banner);
+}
+
+function showImportSuccess(msg) {
+  document.getElementById('importSummary').innerHTML = `<strong style="color:var(--green)">✅ ${msg}</strong><br>ปิดหน้าต่างนี้โดยอัตโนมัติใน 2 วินาที...`;
+  document.getElementById('confirmImportBtn').disabled = true;
+  document.getElementById('confirmImportBtn').textContent = '✅ นำเข้าแล้ว';
+}
+
+// Close modal on backdrop click
+document.getElementById('importModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeImportModal();
+});
+</script>
+
+<!-- LANGUAGE TOGGLE -->
+<script>
+let currentLang='th';
+const T={
+  th:{live_badge:'LIVE — 24 มิ.ย. 2026',export_btn:'⬇️ Export Report',notif_header:'🔔 การแจ้งเตือน',notif_clear:'ล้างทั้งหมด',
+    nav_overview:'Overview',nav_dashboard:'CEO Dashboard',nav_operations:'Operations',nav_inventory:'Inventory',
+    nav_bar:'Bar Ops',nav_analytics:'Analytics',nav_sales:'Sales Analytics',nav_customers:'Customer Analytics',
+    nav_growth:'Growth',nav_marketing:'Marketing AI',nav_support:'Customer Support',nav_finance_people:'Finance & People',
+    nav_finance:'Finance',nav_staff:'Staff & HR',nav_ai:'Ask DANK AI',
+    dash_title:'CEO Dashboard',dash_sub:'Live · 24 มิ.ย. 2026 (วันพุธ) · ข้อมูล May 2026',
+    kpi_inv_title:'💰 Inventory Value',kpi_inv_sub:'200+ SKUs tracked',
+    kpi_sales_title:'🌿 May Sales (Weed)',kpi_sales_sub:'Top 5 strains revenue',kpi_sales_badge:'↑ 12% vs Apr',
+    kpi_stock_title:'⚠️ Low / Zero Stock',kpi_stock_sub:'Items need reorder',kpi_stock_badge:'4 out of stock',
+    kpi_pay_title:'👥 Payroll (May)',kpi_pay_sub:'2 สาขา · 22 พนักงาน',
+    inv_title:'Inventory Management',inv_sub:'ข้อมูล May 2026 · 200+ SKUs · Total Value ฿546,593',
+    bar_title:'Bar Operations',bar_sub:'วันนี้: Honey (3PM-12AM) · Jack (9PM-6AM)',
+    sales_title:'Sales Analytics',sales_sub:'เปรียบเทียบยอดขายรายวัน / สาขา / สายพันธุ์',
+    cust_title:'Customer Analytics',cust_sub:'พฤติกรรมลูกค้า · Peak Hours · Repeat Customers',
+    mkt_title:'Marketing AI',mkt_sub:'Auto-generate content จาก real sales data',
+    sup_title:'Customer Support AI',sup_sub:'LINE OA Auto-Reply · 87% auto-resolved',
+    fin_title:'Finance',fin_sub:'Payroll · Inventory Value · Commission',
+    staff_title:'Staff & HR',staff_sub:'22 พนักงาน · 2 สาขา · แก้ไขชื่อพนักงานได้โดยตรง',
+    ai_title:'Ask DANK AI',ai_sub:'เชื่อมข้อมูลจริง · สินค้า · พนักงาน · Payroll',staff_save:'💾 Save All'},
+  en:{live_badge:'LIVE — Jun 24, 2026',export_btn:'⬇️ Export Report',notif_header:'🔔 Notifications',notif_clear:'Clear All',
+    nav_overview:'Overview',nav_dashboard:'CEO Dashboard',nav_operations:'Operations',nav_inventory:'Inventory',
+    nav_bar:'Bar Ops',nav_analytics:'Analytics',nav_sales:'Sales Analytics',nav_customers:'Customer Analytics',
+    nav_growth:'Growth',nav_marketing:'Marketing AI',nav_support:'Customer Support',nav_finance_people:'Finance & People',
+    nav_finance:'Finance',nav_staff:'Staff & HR',nav_ai:'Ask DANK AI',
+    dash_title:'CEO Dashboard',dash_sub:'Live · Jun 24, 2026 (Wednesday) · May 2026 Data',
+    kpi_inv_title:'💰 Inventory Value',kpi_inv_sub:'200+ SKUs tracked',
+    kpi_sales_title:'🌿 May Sales (Weed)',kpi_sales_sub:'Top 5 strains revenue',kpi_sales_badge:'↑ 12% vs Apr',
+    kpi_stock_title:'⚠️ Low / Zero Stock',kpi_stock_sub:'Items need reorder',kpi_stock_badge:'4 out of stock',
+    kpi_pay_title:'👥 Payroll (May)',kpi_pay_sub:'2 branches · 22 staff',
+    inv_title:'Inventory Management',inv_sub:'May 2026 Data · 200+ SKUs · Total Value ฿546,593',
+    bar_title:'Bar Operations',bar_sub:'Today: Honey (3PM-12AM) · Jack (9PM-6AM)',
+    sales_title:'Sales Analytics',sales_sub:'Compare daily sales / branches / strains',
+    cust_title:'Customer Analytics',cust_sub:'Customer Behavior · Peak Hours · Repeat Customers',
+    mkt_title:'Marketing AI',mkt_sub:'Auto-generate content from real sales data',
+    sup_title:'Customer Support AI',sup_sub:'LINE OA Auto-Reply · 87% auto-resolved',
+    fin_title:'Finance',fin_sub:'Payroll · Inventory Value · Commission',
+    staff_title:'Staff & HR',staff_sub:'22 staff · 2 branches · Edit names & salaries directly',
+    ai_title:'Ask DANK AI',ai_sub:'Connected to real data · Products · Staff · Payroll',staff_save:'💾 Save All'}
+};
+function toggleLang(){
+  currentLang=currentLang==='th'?'en':'th';
+  const t=T[currentLang],isEN=currentLang==='en';
+  document.getElementById('langFlag').textContent=isEN?'🇬🇧':'🇹🇭';
+  document.getElementById('langLabel').textContent=isEN?'EN / TH':'TH / EN';
+  document.getElementById('langBtn').classList.toggle('en-active',isEN);
+  document.documentElement.lang=currentLang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k])el.textContent=t[k];});
+  const ci=document.getElementById('chatInput'),ai=document.getElementById('aiInput');
+  if(ci)ci.placeholder=isEN?'Ask anything...':'ถามอะไรก็ได้...';
+  if(ai)ai.placeholder=isEN?'Ask anything about the shop...':'ถามอะไรก็ได้เกี่ยวกับร้าน...';
+  document.querySelectorAll('[data-i18n-tab]').forEach(el=>{
+    const k=el.getAttribute('data-i18n-tab');
+    const tabs={tab_daily:isEN?'Daily':'รายวัน',tab_weekly:isEN?'Weekly':'รายสัปดาห์',tab_branch:isEN?'By Branch':'เปรียบสาขา'};
+    if(tabs[k])el.textContent=tabs[k];
+  });
+  if(isEN){
+    aiResponses['top sellers']='Top Sellers — May 2026 🏆\n\n🥇 Zooties — 272g · ฿59,906\n🥈 Gelato X — 360g · ฿36,020\n🥉 MellowZ — 321g · ฿32,080';
+    aiResponses['หมด']='❌ Out of Stock:\n\n• The Toad (28-35%) — OUT\n• Bangkok Lemon (31%) — OUT\n• Snow Banana (60%) — OUT\n• Halle Berry — Only 0.15g ⚠️';
+    aiResponses['ทำงาน']='📅 Wednesday Jun 24, 2026\n\n🌙 Night: Rena\n☀️ Day: Steve · Gus\n🌆 Evening: Alex · Dylan\n🍹 Bar: Honey · Jack\n🏠 Off: Mon · Pam · Amore';
+    aiResponses['payroll']='💰 Payroll May 2026\n\nPattanakarn: ฿322,165 (17 staff)\nSathorn: ฿95,850 (5 staff)\nTotal: ฿418,015';
+    aiResponses['default']='Sorry, I didn\'t understand 🙏\n\nTry: top sellers · out of stock · who works today · payroll · caption · reorder';
+  } else {
+    aiResponses['top sellers']='สินค้าขายดีสุด May 2026 🏆\n\n🥇 Zooties — 272g · ฿59,906\n🥈 Gelato X — 360g · ฿36,020\n🥉 MellowZ — 321g · ฿32,080';
+    aiResponses['หมด']='❌ สินค้าหมด Stock:\n\n• The Toad — OUT\n• Bangkok Lemon — OUT\n• Snow Banana — OUT\n• Halle Berry — 0.15g ⚠️';
+    aiResponses['ทำงาน']='📅 วันพุธ 24 มิ.ย. 2026\n\n🌙 Night: Rena\n☀️ Day: Steve · Gus\n🌆 Evening: Alex · Dylan\n🍹 Bar: Honey · Jack\n🏠 Off: Mon · Pam · Amore';
+    aiResponses['payroll']='💰 Payroll May 2026\n\nPattanakarn: ฿322,165\nSathorn: ฿95,850\nรวม: ฿418,015';
+    aiResponses['default']='ขอโทษค่ะ ไม่เข้าใจ 🙏\n\nลองถาม: ขายดีสุด · หมด stock · วันนี้ใครทำงาน · payroll · caption · reorder';
+  }
+}
+</script>
+<!-- Session management: auto sign-out on token expiry, role-based access helpers -->
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>
