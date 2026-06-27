@@ -23,7 +23,7 @@ const AUTH_CONFIG = {
   loginPage:  _base + 'login.html',
   signupPage: _base + 'signup.html',
   verifyPage: _base + 'verify-email.html',
-  dashPage:   _base + 'dank-ai-center.html',
+  dashPage:   _base + 'index.html',
   forgotPage: _base + 'forgot-password.html',
   resetPage:  _base + 'reset-password.html',
 };
