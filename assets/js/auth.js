@@ -12,13 +12,20 @@
  */
 'use strict';
 
+// Auto-detect base path — works on localhost AND GitHub Pages (/Ai/)
+const _base = (() => {
+  const p = window.location.pathname;
+  const last = p.lastIndexOf('/');
+  return last > 0 ? p.substring(0, last + 1) : '/';
+})();
+
 const AUTH_CONFIG = {
-  loginPage:  'login.html',
-  signupPage: 'signup.html',
-  verifyPage: 'verify-email.html',
-  dashPage:   'dank-ai-center.html',
-  forgotPage: 'forgot-password.html',
-  resetPage:  'reset-password.html',
+  loginPage:  _base + 'login.html',
+  signupPage: _base + 'signup.html',
+  verifyPage: _base + 'verify-email.html',
+  dashPage:   _base + 'dank-ai-center.html',
+  forgotPage: _base + 'forgot-password.html',
+  resetPage:  _base + 'reset-password.html',
 };
 
 // ─────────────────────────────────────────────────────────────
