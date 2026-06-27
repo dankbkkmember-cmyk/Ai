@@ -293,6 +293,7 @@
       <input type="file" accept=".csv" style="display:none" onchange="importCSV(event)">
     </label>
     <button class="export-btn" onclick="exportReport()" data-i18n="export_btn">⬇️ Export Report</button>
+    <button class="export-btn" onclick="if(confirm('ออกจากระบบ?'))AuthService.logout()" style="background:#7f1d1d;border:1px solid #ef4444" title="ออกจากระบบ">🚪 ออกจากระบบ</button>
   </div>
 </header>
 
