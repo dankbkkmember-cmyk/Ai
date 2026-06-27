@@ -16,6 +16,8 @@
   <!-- 4. Supabase client + Auth -->
   <script src="assets/js/supabase.js"></script>
   <script src="assets/js/auth.js"></script>
+  <!-- ถ้า login อยู่แล้ว → ไป dashboard เลย -->
+  <script>AuthGuard.redirectIfAuth();</script>
 </head>
 <body>
 
